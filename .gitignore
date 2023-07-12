@@ -1,0 +1,7 @@
+TODO.md
+.venv/
+.vscode/
+*.pdf
+.pytest_cache/
+__pycache__/
+runs/
