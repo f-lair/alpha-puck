@@ -134,6 +134,7 @@ def train(
                         logger.add_scalars(
                             "Evaluation",
                             {"Wins": num_wins, "Draws": num_draws, "Defeats": num_defeats},
+                            frame_idx,
                         )
                         agent_p1.save_model(model_filepath)
 
