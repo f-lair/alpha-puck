@@ -2,6 +2,7 @@ TODO.md
 .venv/
 .vscode/
 *.pdf
+*.npy
 .pytest_cache/
 __pycache__/
 runs/
