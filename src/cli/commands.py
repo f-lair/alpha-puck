@@ -7,6 +7,7 @@ from torch.utils.tensorboard.writer import SummaryWriter
 from tqdm import tqdm
 
 from cli.utils import (
+    Mode,
     get_device,
     get_env_from_mode,
     get_opponent_from_mode,
@@ -71,7 +72,7 @@ def train(
         epsilon_start, epsilon_min, decay_factor, discretization_dim
     )
     optimizer = optim.Adam(params=q_model.main_parameters(), lr=learning_rate)
-    loss_fn = nn.SmoothL1Loss(reduction='sum').to(device)  # type: ignore
+    loss_fn = nn.SmoothL1Loss(reduction="sum").to(device)  # type: ignore
     agent_p1 = Agent(
         q_model, discretization_dim, max_abs_force, max_abs_torque, device, exploration_strategy
     )
@@ -80,7 +81,7 @@ def train(
     logger = SummaryWriter(f"runs/{datetime.now().strftime('%m_%d_%y__%H_%M')}")
 
     frame_idx = 0
-    pbar_stats = {'loss': 0.0}
+    pbar_stats = {"loss": 0.0}
 
     with tqdm(total=num_frames, disable=disable_progress_bar, postfix=pbar_stats) as pbar:
         while frame_idx < num_frames:
@@ -97,7 +98,7 @@ def train(
                     logger.add_scalar("Epsilon", exploration_strategy.epsilon, frame_idx)
 
                 action_c_p1, action_d_p1 = agent_p1.act(state_p1)
-                if mode == 2:
+                if mode == Mode.PLAY_RL:
                     action_c_p2, action_d_p2 = agent_p2.act(state_p2)
                 else:
                     action_c_p2 = agent_p2.act(state_p2)
@@ -111,7 +112,7 @@ def train(
                 pbar.update()
 
                 replay_buffer.store(state_p1, next_state_p1, action_d_p1, reward, terminal)
-                if mode == 2:
+                if mode == Mode.PLAY_RL:
                     replay_buffer.store(state_p2, next_state_p2, action_d_p2, -reward, terminal)  # type: ignore
 
                 state_p1 = next_state_p1
@@ -123,7 +124,7 @@ def train(
                             replay_buffer, loss_fn, optimizer, batch_size, grad_clip_norm
                         )
                         logger.add_scalar("Loss", loss, frame_idx)
-                        pbar_stats['loss'] = loss
+                        pbar_stats["loss"] = loss
                         pbar.set_postfix(pbar_stats)
 
                     if frame_idx % eval_freq == 0:
@@ -140,7 +141,7 @@ def train(
                         agent_p1.update_target_network()
 
                     if terminal:
-                        logger.add_scalar("Learning winner", info['winner'], frame_idx)
+                        logger.add_scalar("Learning winner", info["winner"], frame_idx)
 
 
 def test(

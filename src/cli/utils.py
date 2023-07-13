@@ -5,8 +5,9 @@ from typing import Tuple
 import laserhockey.hockey_env as h_env
 import numpy as np
 import torch
-from rl.agent import Agent
 from tqdm import trange
+
+from rl.agent import Agent
 
 
 class Mode(IntEnum):
@@ -30,9 +31,9 @@ def setup_rng(rng_seed: int) -> None:
 
 def get_device(no_gpu: bool) -> torch.device:
     if no_gpu or not torch.cuda.is_available():
-        return torch.device('cpu')
+        return torch.device("cpu")
     else:
-        return torch.device('cuda')
+        return torch.device("cuda")
 
 
 def get_env_from_mode(mode: int) -> h_env.HockeyEnv:
@@ -77,7 +78,7 @@ def play_eval(
                 env.render()
 
             action_c_p1, _ = agent_p1.act(state_p1)
-            if mode == 2:
+            if mode == Mode.PLAY_RL:
                 action_c_p2, _ = agent_p2.act(state_p2)
             else:
                 action_c_p2 = agent_p2.act(state_p2)
@@ -86,7 +87,7 @@ def play_eval(
             state_p2 = env.obs_agent_two()
 
             if terminal:
-                win_stats[episode_idx] = info['winner']
+                win_stats[episode_idx] = info["winner"]
 
     num_wins = (win_stats == 1).sum()
     num_draws = (win_stats == 0).sum()
