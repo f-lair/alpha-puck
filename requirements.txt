@@ -1,4 +1,4 @@
-laserhocker @ git+https://github.com/martius-lab/laser-hockey-env@master
+laserhockey @ git+https://github.com/martius-lab/laser-hockey-env@master
 numpy==1.25.1
 pytest==7.4.0
 tensorboard==2.13.0
