@@ -3,9 +3,10 @@ from typing import Callable, Tuple
 
 import numpy as np
 import torch
+from torch import nn, optim
+
 from rl.critic import Critic, CriticDQN
 from rl.replay_buffer import ReplayBuffer
-from torch import nn, optim
 
 
 class Agent:
@@ -27,9 +28,7 @@ class Agent:
 
         self.d2c_mapping = self._create_full_d2c_mapping(
             discretization_dim, max_abs_force, max_abs_torque
-        ).to(
-            self.device
-        )
+        ).to(self.device)
 
         if not self.double_q:
             # activate evaluation mode for inference model
@@ -68,7 +67,7 @@ class Agent:
     def _d2c(self, action: torch.Tensor) -> torch.Tensor:
         return self.d2c_mapping.gather(dim=-1, index=action[..., None])[..., 0]
 
-    def act(self, state: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+    def act(self, state: np.ndarray, eval_: bool = False) -> Tuple[np.ndarray, np.ndarray]:
         with torch.no_grad():
             if self.double_q:
                 out, _ = self.q_model(torch.tensor(state, device=self.device, dtype=torch.float32))
@@ -77,7 +76,7 @@ class Agent:
 
         action = self._select_action(out).squeeze()
 
-        if self.double_q:
+        if self.double_q and not eval_:
             assert self.exploration_strategy is not None
             action = self.exploration_strategy(action)
 

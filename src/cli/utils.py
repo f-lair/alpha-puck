@@ -77,9 +77,9 @@ def play_eval(
             if not disable_rendering:
                 env.render()
 
-            action_c_p1, _ = agent_p1.act(state_p1)
+            action_c_p1, _ = agent_p1.act(state_p1, eval_=True)
             if mode == Mode.PLAY_RL:
-                action_c_p2, _ = agent_p2.act(state_p2)
+                action_c_p2, _ = agent_p2.act(state_p2, eval_=True)  # type: ignore
             else:
                 action_c_p2 = agent_p2.act(state_p2)
 
