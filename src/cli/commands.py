@@ -1,4 +1,5 @@
 from datetime import datetime
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -8,6 +9,7 @@ from tqdm import tqdm
 
 from cli.utils import (
     Mode,
+    compute_winning_percentage,
     get_device,
     get_env_from_mode,
     get_opponent_from_mode,
@@ -46,8 +48,8 @@ def train(
     num_warmup_frames: int,
     no_gpu: bool,
     rng_seed: int,
-    model_filepath: str,
-    continue_learning: bool,
+    logging_dir: str,
+    checkpoint: str,
     log_freq: int,
     eval_freq: int,
     num_eval_episodes: int,
@@ -55,14 +57,17 @@ def train(
     disable_progress_bar: bool,
     **kwargs,
 ) -> None:
+    hparams = locals().copy()
+    del hparams["kwargs"]
+
     setup_rng(rng_seed)
     device = get_device(no_gpu)
 
     env = get_env_from_mode(mode)
 
     q_model = CriticDQN(state_dim, hidden_dim, action_dim, discretization_dim)
-    if continue_learning:
-        q_model.load(model_filepath)
+    if checkpoint != "":
+        q_model.load(checkpoint)
     q_model = q_model.to(device)
 
     replay_buffer = ReplayBuffer(
@@ -78,7 +83,10 @@ def train(
     )
     agent_p2 = get_opponent_from_mode(agent_p1, mode)
 
-    logger = SummaryWriter(f"runs/{datetime.now().strftime('%m_%d_%y__%H_%M')}")
+    log_path = Path(logging_dir).joinpath(datetime.now().strftime("%m_%d_%y__%H_%M"))
+    model_filepath = log_path.joinpath("checkpoint.pt")
+    logger = SummaryWriter(str(log_path))
+    hparam_metrics_dict = {"hparam/winning-percentage": 0.0}
 
     frame_idx = 0
     pbar_stats = {"loss": 0.0}
@@ -89,6 +97,7 @@ def train(
             state_p1, _ = env.reset()
             state_p2 = env.obs_agent_two()
             terminal = False
+            cumulative_reward = 0.0
 
             while not terminal:
                 if not disable_rendering:
@@ -110,6 +119,7 @@ def train(
 
                 frame_idx += 1
                 pbar.update()
+                cumulative_reward += reward
 
                 replay_buffer.store(state_p1, next_state_p1, action_d_p1, reward, terminal)
                 if mode == Mode.PLAY_RL:
@@ -131,18 +141,27 @@ def train(
                         num_wins, num_draws, num_defeats = play_eval(
                             env, agent_p1, agent_p2, mode, num_eval_episodes, True, True
                         )
-                        logger.add_scalars(
-                            "Evaluation",
-                            {"Wins": num_wins, "Draws": num_draws, "Defeats": num_defeats},
-                            frame_idx,
+                        winning_percentage = compute_winning_percentage(
+                            num_wins, num_draws, num_eval_episodes
                         )
-                        agent_p1.save_model(model_filepath)
+                        logger.add_scalar("Evaluation-Wins", num_wins, frame_idx)
+                        logger.add_scalar("Evaluation-Draws", num_draws, frame_idx)
+                        logger.add_scalar("Evaluation-Defeats", num_defeats, frame_idx)
+                        logger.add_scalar(
+                            "Evaluation-Winning-Percentage", winning_percentage, frame_idx
+                        )
+                        hparam_metrics_dict["hparam/winning-percentage"] = winning_percentage
+                        agent_p1.save_model(str(model_filepath))
 
                     if frame_idx % update_target_freq == 0:
                         agent_p1.update_target_network()
 
                     if terminal:
-                        logger.add_scalar("Learning winner", info["winner"], frame_idx)
+                        logger.add_scalar("Learning-Game-Outcome", info["winner"], frame_idx)
+                        logger.add_scalar(
+                            "Learning-Cumulative-Reward", cumulative_reward, frame_idx
+                        )
+    logger.add_hparams(hparams, hparam_metrics_dict, run_name="hparams")
 
 
 def test(
@@ -155,7 +174,7 @@ def test(
     max_abs_torque: float,
     no_gpu: bool,
     rng_seed: int,
-    model_filepath: str,
+    checkpoint: str,
     num_eval_episodes: int,
     disable_rendering: bool,
     disable_progress_bar: bool,
@@ -168,7 +187,7 @@ def test(
     env = get_env_from_mode(mode)
 
     q_model = CriticDQN(state_dim, hidden_dim, action_dim, discretization_dim)
-    q_model.load(model_filepath)
+    q_model.load(checkpoint)
     q_model = q_model.to(device)
 
     agent_p1 = Agent(q_model, discretization_dim, max_abs_force, max_abs_torque, device)
@@ -177,10 +196,12 @@ def test(
     num_wins, num_draws, num_defeats = play_eval(
         env, agent_p1, agent_p2, mode, num_eval_episodes, disable_rendering, disable_progress_bar
     )
+    winning_percentage = compute_winning_percentage(num_wins, num_draws, num_eval_episodes)
 
     print(f"Wins: {num_wins} / {num_eval_episodes} ({num_wins / num_eval_episodes:.1%})")
     print(f"Draws: {num_draws} / {num_eval_episodes} ({num_draws / num_eval_episodes:.1%})")
     print(f"Defeats: {num_defeats} / {num_eval_episodes} ({num_defeats / num_eval_episodes:.1%})")
+    print(f"Winning percentage: {winning_percentage:.1%}")
 
 
 def play(**kwargs) -> None:

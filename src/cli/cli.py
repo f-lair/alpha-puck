@@ -17,9 +17,9 @@ class CLI:
             description="Main script for training, local testing and online playing with the DecQN implementation of AlphaPuck.",
         )
         self.subparsers = self.main_parser.add_subparsers(title="Commands")
-        self.train_parser = self.subparsers.add_parser('train', help="Trains agent.")
-        self.test_parser = self.subparsers.add_parser('test', help="Tests agent locally.")
-        self.play_parser = self.subparsers.add_parser('play', help="Play online.")
+        self.train_parser = self.subparsers.add_parser("train", help="Trains agent.")
+        self.test_parser = self.subparsers.add_parser("test", help="Tests agent locally.")
+        self.play_parser = self.subparsers.add_parser("play", help="Play online.")
         # Link commands
         self.train_parser.set_defaults(func=train)
         self.test_parser.set_defaults(func=test)
@@ -27,202 +27,202 @@ class CLI:
 
         ## Global arguments
         self.main_parser.add_argument(
-            '-v',
-            '--verbose',
+            "-v",
+            "--verbose",
             default=False,
-            action='store_true',
+            action="store_true",
             help="Activates verbose console output.",
         )
         self.main_parser.add_argument(
-            '--state-dim',
+            "--state-dim",
             type=int,
             default=18,
             help=".",
         )
         self.main_parser.add_argument(
-            '--hidden-dim',
+            "--hidden-dim",
             type=int,
             default=512,
             help=".",
         )
         self.main_parser.add_argument(
-            '--action-dim',
+            "--action-dim",
             type=int,
             default=4,
             help=".",
         )
         self.main_parser.add_argument(
-            '--discretization-dim',
+            "--discretization-dim",
             type=int,
             default=3,
             help=".",
         )
         self.main_parser.add_argument(
-            '--mode',
+            "--mode",
             type=int,
             default=0,
             help=".",
         )
         self.main_parser.add_argument(
-            '--max-abs-force',
+            "--max-abs-force",
             type=float,
             default=1.0,
             help=".",
         )
         self.main_parser.add_argument(
-            '--max-abs-torque',
+            "--max-abs-torque",
             type=float,
             default=1.0,
             help=".",
         )
         self.main_parser.add_argument(
-            '--no-gpu',
+            "--no-gpu",
             default=False,
-            action='store_true',
+            action="store_true",
             help=".",
         )
         self.main_parser.add_argument(
-            '--rng-seed',
+            "--rng-seed",
             type=int,
             default=7,
             help=".",
         )
         self.main_parser.add_argument(
-            '--model-filepath',
+            "--logging-dir",
             type=str,
-            default='model.pt',
+            default="../runs/",
             help=".",
         )
         self.main_parser.add_argument(
-            '--num-eval-episodes',
+            "--checkpoint",
+            type=str,
+            default="",
+            help=".",
+        )
+        self.main_parser.add_argument(
+            "--num-eval-episodes",
             type=int,
             default=100,
             help=".",
         )
         self.main_parser.add_argument(
-            '--disable-rendering',
+            "--disable-rendering",
             default=False,
-            action='store_true',
+            action="store_true",
             help=".",
         )
         self.main_parser.add_argument(
-            '--disable-progress-bar',
+            "--disable-progress-bar",
             default=False,
-            action='store_true',
+            action="store_true",
             help=".",
         )
 
         ## Train arguments
         self.train_parser.add_argument(
-            '--batch-size',
+            "--batch-size",
             type=int,
             default=256,
             help=".",
         )
         self.train_parser.add_argument(
-            '--learning-rate',
+            "--learning-rate",
             type=float,
             default=1e-4,
             help=".",
         )
         self.train_parser.add_argument(
-            '--grad-clip-norm',
+            "--grad-clip-norm",
             type=float,
             default=40.0,
             help=".",
         )
         self.train_parser.add_argument(
-            '--replay-buffer-size',
+            "--replay-buffer-size",
             type=int,
             default=1_000_000,
             help=".",
         )
         self.train_parser.add_argument(
-            '--num-steps',
+            "--num-steps",
             type=int,
             default=3,
             help=".",
         )
         self.train_parser.add_argument(
-            '--min-priority',
+            "--min-priority",
             type=float,
             default=1e-2,
             help=".",
         )
         self.train_parser.add_argument(
-            '--alpha',
+            "--alpha",
             type=float,
             default=0.6,
             help=".",
         )
         self.train_parser.add_argument(
-            '--beta',
+            "--beta",
             type=float,
             default=0.2,
             help=".",
         )
         self.train_parser.add_argument(
-            '--gamma',
+            "--gamma",
             type=float,
             default=0.99,
             help=".",
         )
         self.train_parser.add_argument(
-            '--epsilon-start',
+            "--epsilon-start",
             type=float,
             default=0.1,
             help=".",
         )
         self.train_parser.add_argument(
-            '--epsilon-min',
+            "--epsilon-min",
             type=float,
             default=1e-4,
             help=".",
         )
         self.train_parser.add_argument(
-            '--decay-factor',
+            "--decay-factor",
             type=float,
             default=0.999999,
             help=".",
         )
         self.train_parser.add_argument(
-            '--num-frames',
+            "--num-frames",
             type=int,
             default=10_000_000,
             help=".",
         )
         self.train_parser.add_argument(
-            '--learn-freq',
+            "--learn-freq",
             type=int,
             default=1,
             help=".",
         )
         self.train_parser.add_argument(
-            '--update-target-freq',
+            "--update-target-freq",
             type=int,
             default=100,
             help=".",
         )
         self.train_parser.add_argument(
-            '--num-warmup-frames',
+            "--num-warmup-frames",
             type=int,
             default=50_000,
             help=".",
         )
         self.train_parser.add_argument(
-            '--continue-learning',
-            default=False,
-            action='store_true',
-            help=".",
-        )
-        self.train_parser.add_argument(
-            '--log-freq',
+            "--log-freq",
             type=int,
-            default=100,
+            default=1000,
             help=".",
         )
         self.train_parser.add_argument(
-            '--eval-freq',
+            "--eval-freq",
             type=int,
             default=100_000,
             help=".",

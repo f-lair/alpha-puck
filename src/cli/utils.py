@@ -94,3 +94,7 @@ def play_eval(
     num_defeats = (win_stats == -1).sum()
 
     return num_wins, num_draws, num_defeats
+
+
+def compute_winning_percentage(num_wins: int, num_draws: int, num_games: int) -> float:
+    return (num_wins + 0.5 * num_draws) / num_games
