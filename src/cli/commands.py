@@ -57,6 +57,44 @@ def train(
     disable_progress_bar: bool,
     **kwargs,
 ) -> None:
+    """
+    CLI command for RL agent training.
+
+    Args:
+        state_dim (int): Dimensionality of the state space.
+        hidden_dim (int): Dimensionality of the hidden layers in the critic model.
+        action_dim (int): Dimensionality of the action space.
+        discretization_dim (int): Dimensionality of the action discretization.
+        batch_size (int): Batch size per learning step.
+        learning_rate (float): Learning rate of the optimizer (Adam).
+        grad_clip_norm (float): Maximum gradient norm above which gradients are clipped to.
+        replay_buffer_size (int): Size of the replay buffer.
+        num_steps (int): Number of steps in multi-step-return.
+        min_priority (float): Minimum priority per transition in the replay buffer.
+        alpha (float): Priority exponent in the replay buffer.
+        beta (float): Importance sampling exponent in the replay buffer.
+        gamma (float): Discount factor.
+        epsilon_start (float): Initial value for epsilon in the epsilon-greedy exploration strategy.
+        epsilon_min (float): Minimum value for epsilon in the epsilon-greedy exploration strategy.
+        decay_factor (float): Decay factor for epsilon in the epsilon-greedy exploration strategy.
+        num_frames (int): Total number of frames used for training.
+        mode (int): Environment mode: 0 (defense), 1 (attacking), 2 (play vs. weak bot), 3 (play vs. strong bot), 4 (play vs. AI).
+        max_abs_force (float): Maximum absolute force used for translation.
+        max_abs_torque (float): Maximum absolute torque used for rotation.
+        learn_freq (int): _description_
+        update_target_freq (int): _description_
+        num_warmup_frames (int): _description_
+        no_gpu (bool): Disables CUDA.
+        rng_seed (int): Random number generator seed. Set to negative values to generate a random seed.
+        logging_dir (str): Logging directory.
+        checkpoint (str): Path to checkpoint for evaluation/further training.
+        log_freq (int): Number of frames after which certain statistics (e.g., epsilon) are logged.
+        eval_freq (int): Number of frames after which an evaluation interlude is started.
+        num_eval_episodes (int): Number of evaluation episodes.
+        disable_rendering (bool): Disables graphical rendering.
+        disable_progress_bar (bool): Disables progress bar.
+    """
+
     hparams = locals().copy()
     del hparams["kwargs"]
 
@@ -180,6 +218,25 @@ def test(
     disable_progress_bar: bool,
     **kwargs,
 ) -> None:
+    """
+    CLI command for RL agent testing/evaluation.
+
+    Args:
+        state_dim (int): Dimensionality of the state space.
+        hidden_dim (int): Dimensionality of the hidden layers in the critic model.
+        action_dim (int): Dimensionality of the action space.
+        discretization_dim (int): Dimensionality of the action discretization.
+        mode (int): Environment mode: 0 (defense), 1 (attacking), 2 (play vs. weak bot), 3 (play vs. strong bot), 4 (play vs. AI).
+        max_abs_force (float): Maximum absolute force used for translation.
+        max_abs_torque (float): Maximum absolute torque used for rotation.
+        no_gpu (bool): Disables CUDA.
+        rng_seed (int): Random number generator seed. Set to negative values to generate a random seed.
+        checkpoint (str): Path to checkpoint for evaluation/further training.
+        num_eval_episodes (int): Number of evaluation episodes.
+        disable_rendering (bool): Disables graphical rendering.
+        disable_progress_bar (bool): Disables progress bar.
+    """
+
     setup_rng(rng_seed)
 
     device = get_device(no_gpu)
@@ -205,4 +262,12 @@ def test(
 
 
 def play(**kwargs) -> None:
+    """
+    CLI command for RL agent inference/live play.
+
+    Raises:
+        NotImplementedError: TBD.
+    """
+
+    # TODO: Implement local and remote play
     raise NotImplementedError

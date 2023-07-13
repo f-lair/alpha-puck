@@ -11,6 +11,8 @@ from rl.agent import Agent
 
 
 class Mode(IntEnum):
+    """Environment modes."""
+
     TRAIN_DEF = 0
     TRAIN_ATK = 1
     PLAY_WEAK = 2
@@ -19,6 +21,13 @@ class Mode(IntEnum):
 
 
 def setup_rng(rng_seed: int) -> None:
+    """
+    Sets random number generators up by specifying the initial seed.
+
+    Args:
+        rng_seed (int): Random number generator seed. Set to negative values to generate a random seed.
+    """
+
     if rng_seed >= 0:
         random.seed(rng_seed)
         np.random.seed(rng_seed)
@@ -30,6 +39,16 @@ def setup_rng(rng_seed: int) -> None:
 
 
 def get_device(no_gpu: bool) -> torch.device:
+    """
+    Returns device used for computations (CPU or GPU).
+
+    Args:
+        no_gpu (bool): Disables CUDA.
+
+    Returns:
+        torch.device: Device used for computations.
+    """
+
     if no_gpu or not torch.cuda.is_available():
         return torch.device("cpu")
     else:
@@ -37,6 +56,16 @@ def get_device(no_gpu: bool) -> torch.device:
 
 
 def get_env_from_mode(mode: int) -> h_env.HockeyEnv:
+    """
+    Returns hockey environment, specified by mode.
+
+    Args:
+        mode (int): Environment mode: 0 (defense), 1 (attacking), 2 (play vs. weak bot), 3 (play vs. strong bot), 4 (play vs. AI).
+
+    Returns:
+        h_env.HockeyEnv: Hockey environment.
+    """
+
     if mode == Mode.TRAIN_DEF:
         return h_env.HockeyEnv(mode=h_env.HockeyEnv.TRAIN_DEFENSE)
     elif mode == Mode.TRAIN_ATK:
@@ -46,6 +75,20 @@ def get_env_from_mode(mode: int) -> h_env.HockeyEnv:
 
 
 def get_opponent_from_mode(agent: Agent, mode: int) -> Agent | h_env.BasicOpponent:
+    """
+    Returns opponent agent, specified by mode.
+
+    Args:
+        agent (Agent): Protagonist RL agent.
+        mode (int): Environment mode: 0 (defense), 1 (attacking), 2 (play vs. weak bot), 3 (play vs. strong bot), 4 (play vs. AI).
+
+    Raises:
+        ValueError: Modes above 4 are invalid.
+
+    Returns:
+        Agent | h_env.BasicOpponent: Opponent agent.
+    """
+
     if mode <= Mode.PLAY_WEAK:
         return h_env.BasicOpponent(weak=True)
     elif mode == Mode.PLAY_STRONG:
@@ -65,6 +108,22 @@ def play_eval(
     disable_rendering: bool,
     disable_progress_bar: bool,
 ) -> Tuple[int, int, int]:
+    """
+    Starts evaluation of RL agent.
+
+    Args:
+        env (h_env.HockeyEnv): Hockey environment.
+        agent_p1 (Agent): Protagonist RL agent.
+        agent_p2 (Agent | h_env.BasicOpponent): Opponent agent.
+        mode (int): Environment mode: 0 (defense), 1 (attacking), 2 (play vs. weak bot), 3 (play vs. strong bot), 4 (play vs. AI).
+        num_episodes (int): Number of evaluation episodes.
+        disable_rendering (bool): Disables graphical rendering.
+        disable_progress_bar (bool): Disables progress bar.
+
+    Returns:
+        Tuple[int, int, int]: Number of wins, draws, and defeats.
+    """
+
     win_stats = np.zeros((num_episodes,))
 
     for episode_idx in trange(num_episodes, disable=disable_progress_bar):

@@ -23,6 +23,20 @@ class ReplayBuffer:
         beta: float,
         gamma: float,
     ) -> None:
+        """
+        Initializes replay buffer.
+
+        Args:
+            size (int): Size of the replay buffer.
+            state_dim (int): Dimensionality of the state space.
+            action_dim (int): Dimensionality of the action space.
+            num_steps (int): Number of steps in multi-step-return.
+            min_priority (float): Minimum priority per transition in the replay buffer.
+            alpha (float): Priority exponent in the replay buffer.
+            beta (float): Importance sampling exponent in the replay buffer.
+            gamma (float): Discount factor.
+        """
+
         self.size = size
         self.num_steps = num_steps
         self.alpha = alpha
@@ -46,9 +60,23 @@ class ReplayBuffer:
         self.n_step_buffer = deque(maxlen=self.num_steps)
 
     def is_empty(self) -> bool:
+        """
+        Whether replay buffer is empty.
+
+        Returns:
+            bool: Replay buffer is empty.
+        """
+
         return self.counter == 0
 
     def is_full(self) -> bool:
+        """
+        Whether replay buffer is full.
+
+        Returns:
+            bool: Replay buffer is full.
+        """
+
         return self.counter == self.size - 1
 
     def _store(
@@ -60,6 +88,20 @@ class ReplayBuffer:
         terminal: bool,
         idx: int | None = None,
     ) -> None:
+        """
+        Stores transition in replay buffer without additional checks.
+        S: State dimension.
+        A: Action dimension.
+
+        Args:
+            state (torch.Tensor): State [S].
+            next_state (torch.Tensor): Next state [S].
+            action (torch.Tensor): Action [A].
+            reward (float): Reward.
+            terminal (bool): Terminal flag.
+            idx (int | None, optional): Index where to insert in replay buffer. Defaults to None.
+        """
+
         if idx is None:
             idx = self.counter
             self.counter += 1
@@ -71,6 +113,14 @@ class ReplayBuffer:
         self.terminals[idx] = terminal
 
     def _get_step_info(self) -> Tuple[float, torch.Tensor, bool]:
+        """
+        Returns transition information in multi-step return.
+        S: State dimension.
+
+        Returns:
+            Tuple[float, torch.Tensor, bool]: Reward, next state [S], terminal flag.
+        """
+
         _, next_state, _, reward, terminal = self.n_step_buffer[-1]
 
         for transition in reversed(list(self.n_step_buffer)[:-1]):
@@ -90,6 +140,19 @@ class ReplayBuffer:
         reward: float,
         terminal: bool,
     ) -> None:
+        """
+        Stores transition in replay buffer.
+        S: State dimension.
+        A: Action dimension.
+
+        Args:
+            state (torch.Tensor): State [S].
+            next_state (torch.Tensor): Next state [S].
+            action (torch.Tensor): Action [A].
+            reward (float): Reward.
+            terminal (bool): Terminal flag.
+        """
+
         state_t = torch.tensor(state)
         next_state_t = torch.tensor(next_state)
         action_t = torch.tensor(action)
@@ -119,6 +182,19 @@ class ReplayBuffer:
         torch.Tensor,
         torch.Tensor,
     ]:
+        """
+        Samples a batch of transitions from replay buffer, according to their priority distribution.
+        B: Batch dimension.
+        S: State dimension.
+        A: Action dimension.
+
+        Args:
+            sample_size (int): Number of transitions to be sampled (batch size).
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]: States [B, S], next states [B, S], actions [B, A], rewards [B], terminals [B], importance sampling weights [B], buffer indices [B].
+        """
+
         assert self.counter >= sample_size, "Replay buffer contains less samples than sample size!"
 
         transform_uniform = (
@@ -158,6 +234,15 @@ class ReplayBuffer:
         )
 
     def update_priorities(self, data_indices: torch.Tensor, priorities: torch.Tensor) -> None:
+        """
+        Updates priority distribution at given indices in the replay buffer.
+        B: Batch dimension.
+
+        Args:
+            data_indices (torch.Tensor): Indices in buffer [B].
+            priorities (torch.Tensor): New priorities [B].
+        """
+
         priorities = (priorities + self.min_priority) ** self.alpha
         assert self.priority_tree.nodes.min() >= 0
         self.priority_tree.update(data_indices, priorities)
@@ -165,11 +250,20 @@ class ReplayBuffer:
 
 
 class SumTree:
-    """Implements SumTree for efficient computation of (cumulative) sums."""
+    """Implements SumTree for efficient computation of (cumulative) sums in a vectorized manner."""
 
     # cf. https://github.com/Howuhh/prioritized_experience_replay/blob/main/memory/tree.py
 
     def __init__(self, size: int, data_size: int, data_type: torch.dtype) -> None:
+        """
+        Initializes sum tree.
+
+        Args:
+            size (int): Number of leaf nodes.
+            data_size (int): Vector size per leaf node.
+            data_type (torch.dtype): Vector data type of leaf nodes.
+        """
+
         self.nodes = torch.zeros((2 * size - 1,), dtype=torch.float32)
         self.data = torch.zeros((size, data_size), dtype=data_type)
 
@@ -179,14 +273,37 @@ class SumTree:
 
     @property
     def total(self) -> float:
+        """
+        Returns value at root node (=sum of all leaf node values).
+
+        Returns:
+            float: Leaf node value.
+        """
+
         return self.nodes[0].item()
 
     @property
     def minimum(self) -> Tuple[float, torch.Tensor, int]:
+        """
+        Returns minimum value across leaf nodes.
+
+        Returns:
+            Tuple[float, torch.Tensor, int]: Minimum value, corresponding data vector, leaf node index.
+        """
+
         data_idx = self.minimum_idx - self.size + 1
         return self.nodes[self.minimum_idx].item(), self.data[data_idx], data_idx
 
     def update(self, data_indices: torch.Tensor, values: torch.Tensor) -> None:
+        """
+        Updates sum tree values bottom-up.
+        B: Batch dimension.
+
+        Args:
+            data_indices (torch.Tensor): Leaf node indices, at which new values are inserted [B].
+            values (torch.Tensor): New leaf node values [B].
+        """
+
         compute_parent_indices = lambda indices: (indices - 1) // 2
         compute_mask = lambda parents: parents >= 0
 
@@ -230,6 +347,15 @@ class SumTree:
             self.minimum_idx = int(tree_indices[min_value_idx].item())
 
     def add(self, value: float, data: torch.Tensor, idx: int | None = None):
+        """
+        Adds new leaf node entry.
+
+        Args:
+            value (float): Leaf node value.
+            data (torch.Tensor): Leaf node data vector.
+            idx (int | None, optional): Leaf node index. Defaults to None.
+        """
+
         if idx is None:
             idx = self.counter
             self.counter += 1
@@ -237,7 +363,19 @@ class SumTree:
         self.data[idx] = data
         self.update(torch.tensor([idx]), torch.tensor([value], dtype=torch.float32))
 
-    def get(self, cumsum: torch.Tensor):
+    def get(self, cumsum: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Returns leaf nodes corresponding to given cumulative sums.
+        B: Batch dimension.
+        V: Data vector dimension.
+
+        Args:
+            cumsum (torch.Tensor): Cumulative sums [B].
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor, torch.Tensor]: Leaf node indices [B], corresponding values [B] and data vectors [B, V].
+        """
+
         assert torch.all(cumsum <= self.total), f"{cumsum} > {self.total}"
 
         compute_mask = lambda indices: 2 * indices + 1 < len(self.nodes)
