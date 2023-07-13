@@ -2,6 +2,7 @@ import math
 
 import pytest
 import torch
+
 from src.rl.replay_buffer import SumTree
 
 
@@ -77,7 +78,7 @@ def check_summing(nodes):
     return correct
 
 
-N = 16
+N = 42
 
 
 @pytest.fixture
