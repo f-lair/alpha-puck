@@ -22,8 +22,10 @@ def test_store():
     terminals = [False, False, True, False, False, True]
 
     replay_buffer.store(states[0], next_states[0], actions[0], rewards[0], terminals[0])
+    assert replay_buffer.actual_size == 0
     assert replay_buffer.counter == 0
     replay_buffer.store(states[1], next_states[1], actions[1], rewards[1], terminals[1])
+    assert replay_buffer.actual_size == 1
     assert replay_buffer.counter == 1
     assert replay_buffer.states[0] == states[0]
     assert replay_buffer.next_states[0] == next_states[1]
@@ -31,6 +33,7 @@ def test_store():
     assert replay_buffer.rewards[0] == rewards[0] + gamma * rewards[1]
     assert replay_buffer.terminals[0] == terminals[1]
     replay_buffer.store(states[2], next_states[2], actions[2], rewards[2], terminals[2])
+    assert replay_buffer.actual_size == 2
     assert replay_buffer.counter == 2
     assert replay_buffer.states[1] == states[1]
     assert replay_buffer.next_states[1] == next_states[2]
@@ -38,6 +41,7 @@ def test_store():
     assert replay_buffer.rewards[1] == rewards[1] + gamma * rewards[2]
     assert replay_buffer.terminals[1] == terminals[2]
     replay_buffer.store(states[3], next_states[3], actions[3], rewards[3], terminals[3])
+    assert replay_buffer.actual_size == 3
     assert replay_buffer.counter == 3
     assert replay_buffer.states[2] == states[2]
     assert replay_buffer.next_states[2] == next_states[2]
@@ -45,6 +49,7 @@ def test_store():
     assert replay_buffer.rewards[2] == rewards[2]
     assert replay_buffer.terminals[2] == terminals[2]
     replay_buffer.store(states[4], next_states[4], actions[4], rewards[4], terminals[4])
+    assert replay_buffer.actual_size == 4
     assert replay_buffer.counter == 4
     assert replay_buffer.states[3] == states[3]
     assert replay_buffer.next_states[3] == next_states[4]
@@ -52,7 +57,8 @@ def test_store():
     assert replay_buffer.rewards[3] == rewards[3] + gamma * rewards[4]
     assert replay_buffer.terminals[3] == terminals[4]
     replay_buffer.store(states[5], next_states[5], actions[5], rewards[5], terminals[5])
-    assert replay_buffer.counter == 5
+    assert replay_buffer.actual_size == 5
+    assert replay_buffer.counter == 0
     assert replay_buffer.states[4] == states[4]
     assert replay_buffer.next_states[4] == next_states[5]
     assert replay_buffer.actions[4] == actions[4]

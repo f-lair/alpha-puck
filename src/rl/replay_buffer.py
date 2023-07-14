@@ -51,6 +51,7 @@ class ReplayBuffer:
         self.rewards = torch.empty((self.size,), dtype=torch.float32)
         self.terminals = torch.empty((self.size,), dtype=torch.uint8)
         self.counter = 0
+        self.actual_size = 0
 
         # priority tree
         self.priority_tree = SumTree(size=self.size, data_size=1, data_type=torch.int64)
@@ -113,8 +114,9 @@ class ReplayBuffer:
         reward, next_state_t, terminal = self._get_step_info()
         state_t, _, action_t, _, _ = self.n_step_buffer[0]
 
-        idx = self.counter % self.size
-        self.counter += 1
+        idx = self.counter
+        self.counter = (self.counter + 1) % self.size
+        self.actual_size = min(self.size, self.actual_size + 1)
 
         self.priority_tree.add(self.max_priority, torch.tensor(idx), idx)
 
@@ -148,7 +150,9 @@ class ReplayBuffer:
             Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]: States [B, S], next states [B, S], actions [B, A], rewards [B], terminals [B], importance sampling weights [B], buffer indices [B].
         """
 
-        assert self.counter >= sample_size, "Replay buffer contains less samples than sample size!"
+        assert (
+            self.actual_size >= sample_size
+        ), "Replay buffer contains less samples than sample size!"
 
         transform_uniform = (
             lambda uniform_sample, lower, upper: (lower - upper) * uniform_sample + upper
@@ -167,7 +171,7 @@ class ReplayBuffer:
             probabilities == 0.0
         ] = torch.inf  # weight = 0 in case of numerical instabilities
 
-        weights = (self.counter * probabilities) ** (-self.beta)
+        weights = (self.actual_size * probabilities) ** (-self.beta)
         weights /= weights.max()
 
         states = self.states[sample_indices]
