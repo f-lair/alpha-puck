@@ -70,8 +70,8 @@ class StateNormalization(nn.Module):
             ]
         )
 
-        self.register_buffer("norm_sub", norm_sub)
-        self.register_buffer("norm_div", norm_div)
+        self.register_buffer("norm_sub", norm_sub, persistent=False)
+        self.register_buffer("norm_div", norm_div, persistent=False)
 
     def forward(self, state: torch.Tensor) -> torch.Tensor:
         """
