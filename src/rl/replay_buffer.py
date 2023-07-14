@@ -59,59 +59,6 @@ class ReplayBuffer:
         # multi-step buffer
         self.n_step_buffer = deque(maxlen=self.num_steps)
 
-    def is_empty(self) -> bool:
-        """
-        Whether replay buffer is empty.
-
-        Returns:
-            bool: Replay buffer is empty.
-        """
-
-        return self.counter == 0
-
-    def is_full(self) -> bool:
-        """
-        Whether replay buffer is full.
-
-        Returns:
-            bool: Replay buffer is full.
-        """
-
-        return self.counter == self.size - 1
-
-    def _store(
-        self,
-        state: torch.Tensor,
-        next_state: torch.Tensor,
-        action: torch.Tensor,
-        reward: float,
-        terminal: bool,
-        idx: int | None = None,
-    ) -> None:
-        """
-        Stores transition in replay buffer without additional checks.
-        S: State dimension.
-        A: Action dimension.
-
-        Args:
-            state (torch.Tensor): State [S].
-            next_state (torch.Tensor): Next state [S].
-            action (torch.Tensor): Action [A].
-            reward (float): Reward.
-            terminal (bool): Terminal flag.
-            idx (int | None, optional): Index where to insert in replay buffer. Defaults to None.
-        """
-
-        if idx is None:
-            idx = self.counter
-            self.counter += 1
-
-        self.states[idx] = state
-        self.next_states[idx] = next_state
-        self.actions[idx] = action
-        self.rewards[idx] = reward
-        self.terminals[idx] = terminal
-
     def _get_step_info(self) -> Tuple[float, torch.Tensor, bool]:
         """
         Returns transition information in multi-step return.
@@ -166,10 +113,16 @@ class ReplayBuffer:
         reward, next_state_t, terminal = self._get_step_info()
         state_t, _, action_t, _, _ = self.n_step_buffer[0]
 
-        data_idx = self.priority_tree.minimum[2] if self.is_full() else None
+        idx = self.counter % self.size
+        self.counter += 1
 
-        self.priority_tree.add(self.max_priority, torch.tensor(self.counter), data_idx)
-        self._store(state_t, next_state_t, action_t, reward, terminal)
+        self.priority_tree.add(self.max_priority, torch.tensor(idx), idx)
+
+        self.states[idx] = state_t
+        self.next_states[idx] = next_state_t
+        self.actions[idx] = action_t
+        self.rewards[idx] = reward
+        self.terminals[idx] = terminal
 
     def sample(
         self, sample_size: int
@@ -268,8 +221,6 @@ class SumTree:
         self.data = torch.zeros((size, data_size), dtype=data_type)
 
         self.size = size
-        self.counter = 0
-        self.minimum_idx = self.size - 1
 
     @property
     def total(self) -> float:
@@ -281,18 +232,6 @@ class SumTree:
         """
 
         return self.nodes[0].item()
-
-    @property
-    def minimum(self) -> Tuple[float, torch.Tensor, int]:
-        """
-        Returns minimum value across leaf nodes.
-
-        Returns:
-            Tuple[float, torch.Tensor, int]: Minimum value, corresponding data vector, leaf node index.
-        """
-
-        data_idx = self.minimum_idx - self.size + 1
-        return self.nodes[self.minimum_idx].item(), self.data[data_idx], data_idx
 
     def update(self, data_indices: torch.Tensor, values: torch.Tensor) -> None:
         """
@@ -341,24 +280,15 @@ class SumTree:
             parent_indices = compute_parent_indices(parent_indices)
             mask = compute_mask(parent_indices)
 
-        min_value_idx = torch.argmin(values_unique)
-
-        if values[min_value_idx] < self.nodes[self.minimum_idx]:
-            self.minimum_idx = int(tree_indices[min_value_idx].item())
-
-    def add(self, value: float, data: torch.Tensor, idx: int | None = None):
+    def add(self, value: float, data: torch.Tensor, idx: int):
         """
         Adds new leaf node entry.
 
         Args:
             value (float): Leaf node value.
             data (torch.Tensor): Leaf node data vector.
-            idx (int | None, optional): Leaf node index. Defaults to None.
+            idx (int): Leaf node index.
         """
-
-        if idx is None:
-            idx = self.counter
-            self.counter += 1
 
         self.data[idx] = data
         self.update(torch.tensor([idx]), torch.tensor([value], dtype=torch.float32))

@@ -86,7 +86,7 @@ def example_sum_tree():
     sum_tree = SumTree(N, 1, torch.int64)
 
     for idx in range(N):
-        sum_tree.add(float(idx), torch.tensor([N - 1 - idx]))
+        sum_tree.add(float(idx), torch.tensor([N - 1 - idx]), idx)
 
     return sum_tree
 
@@ -113,14 +113,6 @@ def test_compare_to_base(example_sum_tree, example_base_sum_tree):
 
 def test_add(example_sum_tree):
     assert check_summing(example_sum_tree.nodes)
-
-
-def test_minimum(example_sum_tree):
-    value, data, data_idx = example_sum_tree.minimum
-
-    assert value == 0.0
-    assert data == N - 1
-    assert data_idx == 0
 
 
 def test_update():
