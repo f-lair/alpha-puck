@@ -4,11 +4,110 @@ import torch
 from torch import nn
 
 
+class StateNormalization(nn.Module):
+    """Implements normalization module for input states."""
+
+    def __init__(
+        self, w: float, h: float, vel: float, ang: float, ang_vel: float, vel_puck: float, t: float
+    ) -> None:
+        """
+        Initializes state normalization module.
+
+        Args:
+            w (float): Half field width.
+            h (float): Half field height.
+            vel (float): Maximum absolute player velocity.
+            ang (float): Maximum absolute player angle.
+            ang_vel (float): Maximum absolute player angular velocity.
+            vel_puck (float): Maximum absolute puck velocity.
+            t (float): Maximum time puck can be kept.
+        """
+
+        super().__init__()
+
+        norm_sub = torch.tensor(
+            [
+                -w / 2,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                w / 2,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+                0.0,
+            ]
+        )
+        norm_div = torch.tensor(
+            [
+                w / 2,
+                h,
+                ang,
+                vel,
+                vel,
+                ang_vel,
+                w / 2,
+                h,
+                ang,
+                vel,
+                vel,
+                ang_vel,
+                w,
+                w,
+                vel_puck,
+                vel_puck,
+                t,
+                t,
+            ]
+        )
+
+        self.register_buffer("norm_sub", norm_sub)
+        self.register_buffer("norm_div", norm_div)
+
+    def forward(self, state: torch.Tensor) -> torch.Tensor:
+        """
+        Performs forward pass for a given input state.
+        B: Batch dimension.
+        S: State dimension.
+        A: Action dimension.
+        D: Action discretization dimension.
+
+        Args:
+            state (torch.Tensor): State [B, S]
+
+        Returns:
+            torch.Tensor: Normalized state [B, S].
+        """
+
+        return (state - self.norm_sub[None, :]) / self.norm_div[None, :]  # type: ignore
+
+
 class Critic(nn.Module):
     """Implements single critic network."""
 
     def __init__(
-        self, state_dim: int, hidden_dim: int, action_dim: int, discretization_dim: int
+        self,
+        state_dim: int,
+        hidden_dim: int,
+        action_dim: int,
+        discretization_dim: int,
+        no_state_norm: bool,
+        w: float,
+        h: float,
+        vel: float,
+        ang: float,
+        ang_vel: float,
+        vel_puck: float,
+        t: float,
     ) -> None:
         """
         Initializes critic network.
@@ -18,13 +117,23 @@ class Critic(nn.Module):
             hidden_dim (int): Dimensionality of the hidden layers in the critic model.
             action_dim (int): Dimensionality of the action space.
             discretization_dim (int): Dimensionality of the action discretization.
+            no_state_norm (bool): Disables state normalization.
+            w (float): Half field width.
+            h (float): Half field height.
+            vel (float): Maximum absolute player velocity.
+            ang (float): Maximum absolute player angle.
+            ang_vel (float): Maximum absolute player angular velocity.
+            vel_puck (float): Maximum absolute puck velocity.
+            t (float): Maximum time puck can be kept.
         """
 
         super().__init__()
 
         self.action_dim = action_dim
         self.discretization_dim = discretization_dim
+        self.no_state_norm = no_state_norm
 
+        self.state_norm = StateNormalization(w, h, vel, ang, ang_vel, vel_puck, t)
         self.lin1 = nn.Linear(state_dim, hidden_dim)
         self.lin2 = nn.Linear(hidden_dim, hidden_dim)
         self.lin3 = nn.Linear(hidden_dim, action_dim * discretization_dim)
@@ -48,7 +157,12 @@ class Critic(nn.Module):
             torch.Tensor: Critic model output [B, A, D].
         """
 
-        out1 = self.lin1(state)  # no activation after first fc layer (?)
+        if self.no_state_norm:
+            out1 = self.lin1(state)
+        else:
+            out1 = self.state_norm(state)
+            out1 = self.lin1(out1)
+        # no activation after first fc layer (?)
         out = self.lin2(out1)
         out += out1  # residual connection
         out = self.layer_norm(out)
@@ -82,7 +196,19 @@ class CriticDQN(nn.Module):
     """Implements two Critic networks for Double-Q-Learning."""
 
     def __init__(
-        self, state_dim: int, hidden_dim: int, action_dim: int, discretization_dim: int
+        self,
+        state_dim: int,
+        hidden_dim: int,
+        action_dim: int,
+        discretization_dim: int,
+        no_state_norm: bool,
+        w: float,
+        h: float,
+        vel: float,
+        ang: float,
+        ang_vel: float,
+        vel_puck: float,
+        t: float,
     ) -> None:
         """
         Initializes main and target critic networks.
@@ -92,12 +218,46 @@ class CriticDQN(nn.Module):
             hidden_dim (int): Dimensionality of the hidden layers in the critic model.
             action_dim (int): Dimensionality of the action space.
             discretization_dim (int): Dimensionality of the action discretization.
+            no_state_norm (bool): Disables state normalization.
+            w (float): Half field width.
+            h (float): Half field height.
+            vel (float): Maximum absolute player velocity.
+            ang (float): Maximum absolute player angle.
+            ang_vel (float): Maximum absolute player angular velocity.
+            vel_puck (float): Maximum absolute puck velocity.
+            t (float): Maximum time puck can be kept.
         """
 
         super().__init__()
 
-        self.main_critic = Critic(state_dim, hidden_dim, action_dim, discretization_dim)
-        self.target_critic = Critic(state_dim, hidden_dim, action_dim, discretization_dim)
+        self.main_critic = Critic(
+            state_dim,
+            hidden_dim,
+            action_dim,
+            discretization_dim,
+            no_state_norm,
+            w,
+            h,
+            vel,
+            ang,
+            ang_vel,
+            vel_puck,
+            t,
+        )
+        self.target_critic = Critic(
+            state_dim,
+            hidden_dim,
+            action_dim,
+            discretization_dim,
+            no_state_norm,
+            w,
+            h,
+            vel,
+            ang,
+            ang_vel,
+            vel_puck,
+            t,
+        )
 
         # synchronize initially
         self.target_critic.load_state_dict(self.main_critic.state_dict())

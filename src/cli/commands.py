@@ -12,6 +12,7 @@ from cli.utils import (
     compute_winning_percentage,
     get_device,
     get_env_from_mode,
+    get_env_parameters,
     get_opponent_from_mode,
     play_eval,
     setup_rng,
@@ -23,10 +24,9 @@ from rl.replay_buffer import ReplayBuffer
 
 
 def train(
-    state_dim: int,
     hidden_dim: int,
-    action_dim: int,
     discretization_dim: int,
+    no_state_norm: bool,
     batch_size: int,
     learning_rate: float,
     grad_clip_norm: float,
@@ -61,10 +61,9 @@ def train(
     CLI command for RL agent training.
 
     Args:
-        state_dim (int): Dimensionality of the state space.
         hidden_dim (int): Dimensionality of the hidden layers in the critic model.
-        action_dim (int): Dimensionality of the action space.
         discretization_dim (int): Dimensionality of the action discretization.
+        no_state_norm (bool): Disables state normalization.
         batch_size (int): Batch size per learning step.
         learning_rate (float): Learning rate of the optimizer (Adam).
         grad_clip_norm (float): Maximum gradient norm above which gradients are clipped to.
@@ -101,9 +100,24 @@ def train(
     setup_rng(rng_seed)
     device = get_device(no_gpu)
 
+    state_dim, action_dim, w, h, vel, ang, ang_vel, vel_puck, t = get_env_parameters()
+
     env = get_env_from_mode(mode)
 
-    q_model = CriticDQN(state_dim, hidden_dim, action_dim, discretization_dim)
+    q_model = CriticDQN(
+        state_dim,
+        hidden_dim,
+        action_dim,
+        discretization_dim,
+        no_state_norm,
+        w,
+        h,
+        vel,
+        ang,
+        ang_vel,
+        vel_puck,
+        t,
+    )
     if checkpoint != "":
         q_model.load(checkpoint)
     q_model = q_model.to(device)
@@ -203,10 +217,9 @@ def train(
 
 
 def test(
-    state_dim: int,
     hidden_dim: int,
-    action_dim: int,
     discretization_dim: int,
+    no_state_norm: bool,
     mode: int,
     max_abs_force: float,
     max_abs_torque: float,
@@ -222,10 +235,9 @@ def test(
     CLI command for RL agent testing/evaluation.
 
     Args:
-        state_dim (int): Dimensionality of the state space.
         hidden_dim (int): Dimensionality of the hidden layers in the critic model.
-        action_dim (int): Dimensionality of the action space.
         discretization_dim (int): Dimensionality of the action discretization.
+        no_state_norm (bool): Disables state normalization.
         mode (int): Environment mode: 0 (defense), 1 (attacking), 2 (play vs. weak bot), 3 (play vs. strong bot), 4 (play vs. AI).
         max_abs_force (float): Maximum absolute force used for translation.
         max_abs_torque (float): Maximum absolute torque used for rotation.
@@ -238,12 +250,26 @@ def test(
     """
 
     setup_rng(rng_seed)
-
     device = get_device(no_gpu)
+
+    state_dim, action_dim, w, h, vel, ang, ang_vel, vel_puck, t = get_env_parameters()
 
     env = get_env_from_mode(mode)
 
-    q_model = CriticDQN(state_dim, hidden_dim, action_dim, discretization_dim)
+    q_model = CriticDQN(
+        state_dim,
+        hidden_dim,
+        action_dim,
+        discretization_dim,
+        no_state_norm,
+        w,
+        h,
+        vel,
+        ang,
+        ang_vel,
+        vel_puck,
+        t,
+    )
     q_model.load(checkpoint)
     q_model = q_model.to(device)
 

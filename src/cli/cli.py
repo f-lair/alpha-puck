@@ -34,28 +34,22 @@ class CLI:
             help="Activates verbose console output.",
         )
         self.main_parser.add_argument(
-            "--state-dim",
-            type=int,
-            default=18,
-            help="Dimensionality of the state space.",
-        )
-        self.main_parser.add_argument(
             "--hidden-dim",
             type=int,
             default=512,
             help="Dimensionality of the hidden layers in the critic model.",
         )
         self.main_parser.add_argument(
-            "--action-dim",
-            type=int,
-            default=4,
-            help="Dimensionality of the action space.",
-        )
-        self.main_parser.add_argument(
             "--discretization-dim",
             type=int,
             default=3,
             help="Dimensionality of the action discretization.",
+        )
+        self.main_parser.add_argument(
+            "--no-state-norm",
+            default=False,
+            action="store_true",
+            help="Disables state normalization.",
         )
         self.main_parser.add_argument(
             "--mode",

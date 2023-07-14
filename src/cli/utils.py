@@ -55,6 +55,27 @@ def get_device(no_gpu: bool) -> torch.device:
         return torch.device("cuda")
 
 
+def get_env_parameters() -> Tuple[int, int, float, float, float, float, float, float, float]:
+    """
+    Returns constant environment parameters.
+
+    Returns:
+        Tuple[int, int, float, float, float, float, float, float, float]: State dim, action dim, half field width, half field height, maximum absolute player velocity, maximum absolute player angle, maximum absolute player angular velocity, maximum absolute puck velocity, maximum time puck can be kept.
+    """
+
+    state_dim = 18
+    action_dim = 4
+    w = h_env.CENTER_X
+    h = h_env.CENTER_Y
+    vel = 10  # cf. L. 612
+    ang = h_env.MAX_ANGLE
+    ang_vel = np.pi / 2  # cf. https://box2d.org/documentation/b2__common_8h.html
+    vel_puck = h_env.MAX_PUCK_SPEED
+    t = h_env.MAX_TIME_KEEP_PUCK
+
+    return state_dim, action_dim, w, h, vel, ang, ang_vel, vel_puck, t
+
+
 def get_env_from_mode(mode: int) -> h_env.HockeyEnv:
     """
     Returns hockey environment, specified by mode.
