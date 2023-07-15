@@ -82,12 +82,6 @@ class CLI:
             help="Random number generator seed. Set to negative values to generate a random seed.",
         )
         self.main_parser.add_argument(
-            "--logging-dir",
-            type=str,
-            default="../runs/",
-            help="Logging directory.",
-        )
-        self.main_parser.add_argument(
             "--checkpoint",
             type=str,
             default="",
@@ -208,6 +202,18 @@ class CLI:
             type=int,
             default=300,
             help="Number of initial frames before learning is started.",
+        )
+        self.train_parser.add_argument(
+            "--logging-dir",
+            type=str,
+            default="../runs/",
+            help="Logging directory.",
+        )
+        self.train_parser.add_argument(
+            "--logging-name",
+            type=str,
+            default="",
+            help="Logging run name. Defaults to date and time, if empty.",
         )
         self.train_parser.add_argument(
             "--log-freq",

@@ -49,6 +49,7 @@ def train(
     no_gpu: bool,
     rng_seed: int,
     logging_dir: str,
+    logging_name: str,
     checkpoint: str,
     log_freq: int,
     eval_freq: int,
@@ -86,6 +87,7 @@ def train(
         no_gpu (bool): Disables CUDA.
         rng_seed (int): Random number generator seed. Set to negative values to generate a random seed.
         logging_dir (str): Logging directory.
+        logging_name (str): Logging run name. Defaults to date and time, if empty.
         checkpoint (str): Path to checkpoint for evaluation/further training.
         log_freq (int): Number of frames after which certain statistics (e.g., epsilon) are logged.
         eval_freq (int): Number of frames after which an evaluation interlude is started.
@@ -135,7 +137,9 @@ def train(
     )
     agent_p2 = get_opponent_from_mode(agent_p1, mode)
 
-    log_path = Path(logging_dir).joinpath(datetime.now().strftime("%m_%d_%y__%H_%M"))
+    if logging_name == "":
+        logging_name = datetime.now().strftime("%m_%d_%y__%H_%M")
+    log_path = Path(logging_dir).joinpath(logging_name)
     model_filepath = log_path.joinpath("checkpoint.pt")
     logger = SummaryWriter(str(log_path))
     hparam_metrics_dict = {"hparam/winning-percentage": 0.0}
