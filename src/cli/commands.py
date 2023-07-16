@@ -86,7 +86,7 @@ def train(
         decay_factor (float): Decay factor for epsilon in the epsilon-greedy exploration strategy.
         num_frames (int): Total number of frames used for training.
         mode (int): Environment mode: 0 (defense), 1 (attacking), 2 (play vs. weak bot), 3 (play vs. strong bot), 4 (play vs. AI), 5 (play vs. weak and strong bot).
-        change_opponent_freq (int): Number of episodes after which opponents are changed in mode 4.
+        change_opponent_freq (int): Number of episodes after which opponents are changed in mode 5.
         max_abs_force (float): Maximum absolute force used for translation.
         max_abs_torque (float): Maximum absolute torque used for rotation.
         learn_freq (int): Number of frames after which a learning step is performed.

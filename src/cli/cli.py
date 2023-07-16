@@ -61,7 +61,7 @@ class CLI:
             "--change-opponent-freq",
             type=int,
             default=1000,
-            help="Number of episodes after which opponents are changed in mode 4.",
+            help="Number of episodes after which opponents are changed in mode 5.",
         )
         self.main_parser.add_argument(
             "--max-abs-force",
