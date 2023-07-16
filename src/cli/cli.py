@@ -144,6 +144,12 @@ class CLI:
             help="Minimum priority per transition in the replay buffer.",
         )
         self.train_parser.add_argument(
+            "--decay-window",
+            type=int,
+            default=5,
+            help="Size of the decay window in PSER. Set to 1 for regular PER behavior.",
+        )
+        self.train_parser.add_argument(
             "--alpha",
             type=float,
             default=0.6,
@@ -160,6 +166,18 @@ class CLI:
             type=float,
             default=0.99,
             help="Discount factor.",
+        )
+        self.train_parser.add_argument(
+            "--nu",
+            type=float,
+            default=0.7,
+            help="Previous priority in PSER.",
+        )
+        self.train_parser.add_argument(
+            "--rho",
+            type=float,
+            default=0.4,
+            help="Decay coefficient in PSER.",
         )
         self.train_parser.add_argument(
             "--epsilon-start",

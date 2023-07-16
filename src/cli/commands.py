@@ -33,9 +33,12 @@ def train(
     replay_buffer_size: int,
     num_steps: int,
     min_priority: float,
+    decay_window: int,
     alpha: float,
     beta: float,
     gamma: float,
+    nu: float,
+    rho: float,
     epsilon_start: float,
     epsilon_min: float,
     decay_factor: float,
@@ -71,9 +74,12 @@ def train(
         replay_buffer_size (int): Size of the replay buffer.
         num_steps (int): Number of steps in multi-step-return.
         min_priority (float): Minimum priority per transition in the replay buffer.
+        decay_window (int): Size of the decay window in PSER. Set to 1 for regular PER behavior.
         alpha (float): Priority exponent in the replay buffer.
         beta (float): Importance sampling exponent in the replay buffer.
         gamma (float): Discount factor.
+        nu (float): Previous priority in PSER.
+        rho (float): Decay coefficient in PSER.
         epsilon_start (float): Initial value for epsilon in the epsilon-greedy exploration strategy.
         epsilon_min (float): Minimum value for epsilon in the epsilon-greedy exploration strategy.
         decay_factor (float): Decay factor for epsilon in the epsilon-greedy exploration strategy.
@@ -81,9 +87,9 @@ def train(
         mode (int): Environment mode: 0 (defense), 1 (attacking), 2 (play vs. weak bot), 3 (play vs. strong bot), 4 (play vs. AI).
         max_abs_force (float): Maximum absolute force used for translation.
         max_abs_torque (float): Maximum absolute torque used for rotation.
-        learn_freq (int): _description_
-        update_target_freq (int): _description_
-        num_warmup_frames (int): _description_
+        learn_freq (int): Number of frames after which a learning step is performed.
+        update_target_freq (int): Number of frames after which the target critic is updated.
+        num_warmup_frames (int): Number of initial frames before learning is started.
         no_gpu (bool): Disables CUDA.
         rng_seed (int): Random number generator seed. Set to negative values to generate a random seed.
         logging_dir (str): Logging directory.
@@ -126,7 +132,17 @@ def train(
     q_model = q_model.to(device)
 
     replay_buffer = ReplayBuffer(
-        replay_buffer_size, state_dim, action_dim, num_steps, min_priority, alpha, beta, gamma
+        replay_buffer_size,
+        state_dim,
+        action_dim,
+        num_steps,
+        min_priority,
+        decay_window,
+        alpha,
+        beta,
+        gamma,
+        nu,
+        rho,
     )
     exploration_strategy = EpsilonGreedyExpDecay(
         epsilon_start, epsilon_min, decay_factor, discretization_dim

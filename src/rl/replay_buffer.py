@@ -3,6 +3,7 @@ from typing import Tuple
 
 import numpy as np
 import torch
+from torch_scatter import segment_csr
 
 
 class ReplayBuffer:
@@ -19,9 +20,12 @@ class ReplayBuffer:
         action_dim: int,
         num_steps: int,
         min_priority: float,
+        decay_window: int,
         alpha: float,
         beta: float,
         gamma: float,
+        nu: float,
+        rho: float,
     ) -> None:
         """
         Initializes replay buffer.
@@ -32,17 +36,25 @@ class ReplayBuffer:
             action_dim (int): Dimensionality of the action space.
             num_steps (int): Number of steps in multi-step-return.
             min_priority (float): Minimum priority per transition in the replay buffer.
+            decay_window (int): Size of the decay window in PSER. Set to 1 for regular PER behavior.
             alpha (float): Priority exponent in the replay buffer.
             beta (float): Importance sampling exponent in the replay buffer.
             gamma (float): Discount factor.
+            nu (float): Previous priority in PSER.
+            rho (float): Decay coefficient in PSER.
         """
 
         self.size = size
         self.num_steps = num_steps
+        self.min_priority = min_priority
+        self.decay_window = decay_window
         self.alpha = alpha
         self.beta = beta
         self.gamma = gamma
-        self.min_priority = min_priority
+        self.nu = nu
+        self.rho = torch.full((self.decay_window,), rho)
+        self.rho **= torch.arange(1, self.decay_window + 1)
+        self.rho **= self.alpha
 
         # memory buffers
         self.states = torch.empty((self.size, state_dim), dtype=torch.float32)
@@ -200,10 +212,54 @@ class ReplayBuffer:
             priorities (torch.Tensor): New priorities [B].
         """
 
+        old_priorities, _ = self.priority_tree.get_leaves(data_indices)
+        old_priorities_ = old_priorities * self.nu**self.alpha
         priorities = (priorities + self.min_priority) ** self.alpha
+
         assert self.priority_tree.nodes.min() >= 0
-        self.priority_tree.update(data_indices, priorities)
+
+        self.priority_tree.update(data_indices, torch.maximum(old_priorities_, priorities))
         self.max_priority = max(self.max_priority, priorities.max().item())
+
+        # VECTORIZED PSER IMPLEMENTATION; NOT TESTED
+        # priorities_ = priorities.repeat(1, self.decay_window)
+        # priorities_ *= self.rho[None, :]
+        # priorities_ = priorities_.flatten()
+
+        # data_indices_ = data_indices.repeat(1, self.decay_window)
+        # data_indices_ -= torch.arange(1, self.decay_window + 1)[None, :]
+        # data_indices_ = data_indices_.flatten()
+
+        # old_priorities, _ = self.priority_tree.get_leaves(data_indices_)
+        # data_indices_ = data_indices_.repeat(2)
+        # priorities_ = torch.concatenate((priorities_, old_priorities))
+
+        # # np.maximum.reduceat(values[idx], np.r_[0, np.flatnonzero(np.diff(ids[idx])) + 1])
+        # # cf. https://stackoverflow.com/a/70964414
+        # idx_sorted = torch.argsort(data_indices_)
+        # max_indices = torch.concatenate(
+        #     (
+        #         torch.zeros((1,), dtype=torch.int64),
+        #         torch.nonzero(torch.ravel(torch.diff(data_indices_[idx_sorted])))[:, 0] + 1,
+        #         torch.tensor([len(priorities_)], dtype=torch.int64),
+        #     )
+        # )
+        # priorities_ = segment_csr(priorities_[idx_sorted], max_indices, reduce="max")
+        # data_indices_ = torch.unique_consecutive(data_indices_[idx_sorted])
+
+        # self.priority_tree.update(data_indices_, priorities_)
+
+        terminal = torch.zeros((len(data_indices),), dtype=torch.bool)
+        for k in range(1, self.decay_window + 1):
+            prior_data_indices = data_indices - k
+            terminal = torch.logical_and(terminal, self.terminals[prior_data_indices].bool())
+            prior_data_indices = prior_data_indices[~terminal]
+
+            prior_priorities = priorities[~terminal] * self.rho[k - 1]
+            old_prior_priorities, _ = self.priority_tree.get_leaves(prior_data_indices)
+            updated_prior_priorities = torch.maximum(prior_priorities, old_prior_priorities)
+
+            self.priority_tree.update(prior_data_indices, updated_prior_priorities)
 
 
 class SumTree:
@@ -337,3 +393,20 @@ class SumTree:
         data_indices = tree_indices - self.size + 1
 
         return data_indices, self.nodes[tree_indices], self.data[data_indices]
+
+    def get_leaves(self, data_indices: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Returns leaf nodes corresponding to their indices.
+        B: Batch dimension.
+        V: Data vector dimension.
+
+        Args:
+            data_indices (torch.Tensor): Leaf node indices [B].
+
+        Returns:
+            Tuple[torch.Tensor, torch.Tensor]: Corresponding leaf values [B] and data vectors [B, V].
+        """
+
+        tree_indices = data_indices + self.size - 1
+
+        return self.nodes[tree_indices], self.data[data_indices]

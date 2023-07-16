@@ -12,7 +12,9 @@ def test_store():
     num_steps = 2
     min_prio = 1e-2
     gamma = 0.5
-    replay_buffer = ReplayBuffer(N - num_steps + 1, 1, 1, num_steps, min_prio, 1.0, 0.0, gamma)
+    replay_buffer = ReplayBuffer(
+        N - num_steps + 1, 1, 1, num_steps, min_prio, 0, 1.0, 0.0, gamma, 0.0, 0.0
+    )
 
     actions = np.arange(N, dtype=int)
     states = 0.1 * actions
@@ -70,7 +72,7 @@ def test_update_priorities():
     num_steps = 1
     min_prio = 1e-2
     gamma = 1.0
-    replay_buffer = ReplayBuffer(N, 1, 1, num_steps, min_prio, 1.0, 0.0, gamma)
+    replay_buffer = ReplayBuffer(N, 1, 1, num_steps, min_prio, 0, 1.0, 0.0, gamma, 0.0, 0.0)
 
     data_indices = torch.tensor([1, 3, 5], dtype=torch.int64)
     priorities = torch.tensor([0.0, 2e-2, 4e-2])
@@ -78,3 +80,26 @@ def test_update_priorities():
     replay_buffer.update_priorities(data_indices, priorities)
     assert replay_buffer.max_priority == pytest.approx(5e-2)
     assert_close(replay_buffer.priority_tree.nodes[data_indices + N - 1], priorities + min_prio)
+
+    replay_buffer = ReplayBuffer(N, 1, 1, num_steps, min_prio, 1, 1.0, 0.0, gamma, 0.4, 0.5)
+    replay_buffer.priority_tree.update(
+        torch.tensor([0, 2, 4], dtype=torch.int64), torch.full((N // 2,), 1e-2)
+    )
+    replay_buffer.priority_tree.update(
+        torch.tensor([1, 3, 5], dtype=torch.int64), torch.full((N // 2,), 1e-1)
+    )
+    replay_buffer.terminals[:] = 0
+
+    data_indices = torch.tensor([1, 3, 5], dtype=torch.int64)
+    priorities = torch.tensor([0.0, 2e-2, 4e-2])
+
+    replay_buffer.update_priorities(data_indices, priorities)
+    assert replay_buffer.max_priority == pytest.approx(5e-2)
+
+    print(replay_buffer.priority_tree.nodes[torch.arange(N, dtype=torch.int64) + N - 1])
+    print(torch.tensor([1e-2, 4e-2, 1.5e-2, 4e-2, 2.5e-2, 5e-2]))
+
+    assert_close(
+        replay_buffer.priority_tree.nodes[torch.arange(N, dtype=torch.int64) + N - 1],
+        torch.tensor([1e-2, 4e-2, 1.5e-2, 4e-2, 2.5e-2, 5e-2]),
+    )
