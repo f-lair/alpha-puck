@@ -55,7 +55,13 @@ class CLI:
             "--mode",
             type=int,
             default=0,
-            help="Environment mode: 0 (defense), 1 (attacking), 2 (play vs. weak bot), 3 (play vs. strong bot), 4 (play vs. AI).",
+            help="Environment mode: 0 (defense), 1 (attacking), 2 (play vs. weak bot), 3 (play vs. strong bot), 4 (play vs. AI), 5 (play vs. weak and strong bot).",
+        )
+        self.main_parser.add_argument(
+            "--change-opponent-freq",
+            type=int,
+            default=1000,
+            help="Number of episodes after which opponents are changed in mode 4.",
         )
         self.main_parser.add_argument(
             "--max-abs-force",
@@ -236,7 +242,7 @@ class CLI:
         self.train_parser.add_argument(
             "--log-freq",
             type=int,
-            default=1000,
+            default=10_000,
             help="Number of frames after which certain statistics (e.g., epsilon) are logged.",
         )
         self.train_parser.add_argument(

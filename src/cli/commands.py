@@ -44,6 +44,7 @@ def train(
     decay_factor: float,
     num_frames: int,
     mode: int,
+    change_opponent_freq: int,
     max_abs_force: float,
     max_abs_torque: float,
     learn_freq: int,
@@ -84,7 +85,8 @@ def train(
         epsilon_min (float): Minimum value for epsilon in the epsilon-greedy exploration strategy.
         decay_factor (float): Decay factor for epsilon in the epsilon-greedy exploration strategy.
         num_frames (int): Total number of frames used for training.
-        mode (int): Environment mode: 0 (defense), 1 (attacking), 2 (play vs. weak bot), 3 (play vs. strong bot), 4 (play vs. AI).
+        mode (int): Environment mode: 0 (defense), 1 (attacking), 2 (play vs. weak bot), 3 (play vs. strong bot), 4 (play vs. AI), 5 (play vs. weak and strong bot).
+        change_opponent_freq (int): Number of episodes after which opponents are changed in mode 4.
         max_abs_force (float): Maximum absolute force used for translation.
         max_abs_torque (float): Maximum absolute torque used for rotation.
         learn_freq (int): Number of frames after which a learning step is performed.
@@ -152,16 +154,23 @@ def train(
     agent_p1 = Agent(
         q_model, discretization_dim, max_abs_force, max_abs_torque, device, exploration_strategy
     )
-    agent_p2 = get_opponent_from_mode(agent_p1, mode)
+    agents_p2 = get_opponent_from_mode(agent_p1, mode)
+    weak_strong_agents = get_opponent_from_mode(agent_p1, Mode.PLAY_WEAK_STRONG)
+    weak_strong_agents_dict = {"Weak": weak_strong_agents[0], "Strong": weak_strong_agents[1]}
 
     if logging_name == "":
         logging_name = datetime.now().strftime("%m_%d_%y__%H_%M")
     log_path = Path(logging_dir).joinpath(logging_name)
     model_filepath = log_path.joinpath("checkpoint.pt")
     logger = SummaryWriter(str(log_path))
-    hparam_metrics_dict = {"hparam/winning-percentage": 0.0}
+    hparam_metrics_dict = {
+        "hparam/weak-winning-percentage": 0.0,
+        "hparam/strong-winning-percentage": 0.0,
+    }
 
     frame_idx = 0
+    episode_idx = 0
+    log_terminal_idx = 0
     pbar_stats = {"loss": 0.0}
 
     with tqdm(total=num_frames, disable=disable_progress_bar, postfix=pbar_stats) as pbar:
@@ -171,6 +180,9 @@ def train(
             state_p2 = env.obs_agent_two()
             terminal = False
             cumulative_reward = 0.0
+
+            agent_idx = (episode_idx // change_opponent_freq) % 2
+            agent_p2 = agents_p2[agent_idx]
 
             while not terminal:
                 if not disable_rendering:
@@ -211,29 +223,43 @@ def train(
                         pbar.set_postfix(pbar_stats)
 
                     if frame_idx % eval_freq == 0:
-                        num_wins, num_draws, num_defeats = play_eval(
-                            env, agent_p1, agent_p2, mode, num_eval_episodes, True, True
-                        )
-                        winning_percentage = compute_winning_percentage(
-                            num_wins, num_draws, num_eval_episodes
-                        )
-                        logger.add_scalar("Evaluation-Wins", num_wins, frame_idx)
-                        logger.add_scalar("Evaluation-Draws", num_draws, frame_idx)
-                        logger.add_scalar("Evaluation-Defeats", num_defeats, frame_idx)
-                        logger.add_scalar(
-                            "Evaluation-Winning-Percentage", winning_percentage, frame_idx
-                        )
-                        hparam_metrics_dict["hparam/winning-percentage"] = winning_percentage
+                        for agent_p2_name, agent_p2 in weak_strong_agents_dict.items():
+                            num_wins, num_draws, num_defeats = play_eval(
+                                env, agent_p1, agent_p2, mode, num_eval_episodes, True, True
+                            )
+                            winning_percentage = compute_winning_percentage(
+                                num_wins, num_draws, num_eval_episodes
+                            )
+                            logger.add_scalar(
+                                f"Evaluation-{agent_p2_name}-Wins", num_wins, frame_idx
+                            )
+                            logger.add_scalar(
+                                f"Evaluation-{agent_p2_name}-Draws", num_draws, frame_idx
+                            )
+                            logger.add_scalar(
+                                f"Evaluation-{agent_p2_name}-Defeats", num_defeats, frame_idx
+                            )
+                            logger.add_scalar(
+                                f"Evaluation-{agent_p2_name}-Winning-Percentage",
+                                winning_percentage,
+                                frame_idx,
+                            )
+                            hparam_metrics_dict[
+                                f"hparam/{agent_p2_name.lower()}-winning-percentage"
+                            ] = winning_percentage
                         agent_p1.save_model(str(model_filepath))
 
                     if frame_idx % update_target_freq == 0:
                         agent_p1.update_target_network()
 
                     if terminal:
-                        logger.add_scalar("Learning-Game-Outcome", info["winner"], frame_idx)
-                        logger.add_scalar(
-                            "Learning-Cumulative-Reward", cumulative_reward, frame_idx
-                        )
+                        if frame_idx // eval_freq >= log_terminal_idx:
+                            logger.add_scalar("Learning-Game-Outcome", info["winner"], frame_idx)
+                            logger.add_scalar(
+                                "Learning-Cumulative-Reward", cumulative_reward, frame_idx
+                            )
+                            log_terminal_idx += 1
+            episode_idx += 1
     logger.add_hparams(hparams, hparam_metrics_dict, run_name="hparams")
 
 
@@ -296,7 +322,7 @@ def test(
     q_model = q_model.to(device)
 
     agent_p1 = Agent(q_model, discretization_dim, max_abs_force, max_abs_torque, device)
-    agent_p2 = get_opponent_from_mode(agent_p1, mode)
+    agent_p2, _ = get_opponent_from_mode(agent_p1, mode)
 
     num_wins, num_draws, num_defeats = play_eval(
         env, agent_p1, agent_p2, mode, num_eval_episodes, disable_rendering, disable_progress_bar

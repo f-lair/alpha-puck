@@ -18,6 +18,7 @@ class Mode(IntEnum):
     PLAY_WEAK = 2
     PLAY_STRONG = 3
     PLAY_RL = 4
+    PLAY_WEAK_STRONG = 5
 
 
 def setup_rng(rng_seed: int) -> None:
@@ -81,7 +82,7 @@ def get_env_from_mode(mode: int) -> h_env.HockeyEnv:
     Returns hockey environment, specified by mode.
 
     Args:
-        mode (int): Environment mode: 0 (defense), 1 (attacking), 2 (play vs. weak bot), 3 (play vs. strong bot), 4 (play vs. AI).
+        mode (int): Environment mode: 0 (defense), 1 (attacking), 2 (play vs. weak bot), 3 (play vs. strong bot), 4 (play vs. AI), 5 (play vs. weak and strong bot).
 
     Returns:
         h_env.HockeyEnv: Hockey environment.
@@ -95,27 +96,31 @@ def get_env_from_mode(mode: int) -> h_env.HockeyEnv:
         return h_env.HockeyEnv(mode=h_env.HockeyEnv.NORMAL)
 
 
-def get_opponent_from_mode(agent: Agent, mode: int) -> Agent | h_env.BasicOpponent:
+def get_opponent_from_mode(
+    agent: Agent, mode: int
+) -> Tuple[Agent | h_env.BasicOpponent, Agent | h_env.BasicOpponent]:
     """
     Returns opponent agent, specified by mode.
 
     Args:
         agent (Agent): Protagonist RL agent.
-        mode (int): Environment mode: 0 (defense), 1 (attacking), 2 (play vs. weak bot), 3 (play vs. strong bot), 4 (play vs. AI).
+        mode (int): Environment mode: 0 (defense), 1 (attacking), 2 (play vs. weak bot), 3 (play vs. strong bot), 4 (play vs. AI), 5 (play vs. weak and strong bot).
 
     Raises:
         ValueError: Modes above 4 are invalid.
 
     Returns:
-        Agent | h_env.BasicOpponent: Opponent agent.
+        Tuple[Agent | h_env.BasicOpponent, Agent | h_env.BasicOpponent]: Opponent agent(s).
     """
 
     if mode <= Mode.PLAY_WEAK:
-        return h_env.BasicOpponent(weak=True)
+        return h_env.BasicOpponent(weak=True), h_env.BasicOpponent(weak=True)
     elif mode == Mode.PLAY_STRONG:
-        return h_env.BasicOpponent(weak=False)
+        return h_env.BasicOpponent(weak=False), h_env.BasicOpponent(weak=False)
     elif mode == Mode.PLAY_RL:
-        return agent
+        return agent, agent
+    elif mode == Mode.PLAY_WEAK_STRONG:
+        return h_env.BasicOpponent(weak=True), h_env.BasicOpponent(weak=False)
     else:
         raise ValueError(f"Invalid mode: {mode}.")
 
