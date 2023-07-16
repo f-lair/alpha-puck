@@ -69,8 +69,8 @@ def get_env_parameters() -> Tuple[int, int, float, float, float, float, float, f
     h = h_env.CENTER_Y
     vel = 10  # cf. L. 612
     ang = h_env.MAX_ANGLE
-    ang_vel = np.pi / 2  # cf. https://box2d.org/documentation/b2__common_8h.html
-    vel_puck = h_env.MAX_PUCK_SPEED
+    ang_vel = 6 * np.pi
+    vel_puck = 2 * h_env.MAX_PUCK_SPEED
     t = h_env.MAX_TIME_KEEP_PUCK
 
     return state_dim, action_dim, w, h, vel, ang, ang_vel, vel_puck, t
