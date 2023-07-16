@@ -58,12 +58,6 @@ class CLI:
             help="Environment mode: 0 (defense), 1 (attacking), 2 (play vs. weak bot), 3 (play vs. strong bot), 4 (play vs. AI), 5 (play vs. weak and strong bot).",
         )
         self.main_parser.add_argument(
-            "--change-opponent-freq",
-            type=int,
-            default=1000,
-            help="Number of episodes after which opponents are changed in mode 5.",
-        )
-        self.main_parser.add_argument(
             "--max-abs-force",
             type=float,
             default=1.0,
@@ -131,6 +125,7 @@ class CLI:
             default=40.0,
             help="Maximum gradient norm above which gradients are clipped to.",
         )
+
         self.train_parser.add_argument(
             "--replay-buffer-size",
             type=int,
@@ -220,6 +215,12 @@ class CLI:
             type=int,
             default=100,
             help="Number of frames after which the target critic is updated.",
+        )
+        self.train_parser.add_argument(
+            "--change-opponent-freq",
+            type=int,
+            default=1000,
+            help="Number of episodes after which opponents are changed in mode 5.",
         )
         self.train_parser.add_argument(
             "--num-warmup-frames",
