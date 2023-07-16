@@ -108,6 +108,7 @@ class Critic(nn.Module):
         ang_vel: float,
         vel_puck: float,
         t: float,
+        device: torch.device,
     ) -> None:
         """
         Initializes critic network.
@@ -125,6 +126,7 @@ class Critic(nn.Module):
             ang_vel (float): Maximum absolute player angular velocity.
             vel_puck (float): Maximum absolute puck velocity.
             t (float): Maximum time puck can be kept.
+            device (torch.device): Device used for computations.
         """
 
         super().__init__()
@@ -132,6 +134,7 @@ class Critic(nn.Module):
         self.action_dim = action_dim
         self.discretization_dim = discretization_dim
         self.no_state_norm = no_state_norm
+        self.device = device
 
         self.state_norm = StateNormalization(w, h, vel, ang, ang_vel, vel_puck, t)
         self.lin1 = nn.Linear(state_dim, hidden_dim)
@@ -189,7 +192,7 @@ class Critic(nn.Module):
             filepath (str): Checkpoint filepath.
         """
 
-        self.load_state_dict(torch.load(filepath))
+        self.load_state_dict(torch.load(filepath, map_location=self.device))
 
 
 class CriticDQN(nn.Module):
@@ -209,6 +212,7 @@ class CriticDQN(nn.Module):
         ang_vel: float,
         vel_puck: float,
         t: float,
+        device: torch.device,
     ) -> None:
         """
         Initializes main and target critic networks.
@@ -226,6 +230,7 @@ class CriticDQN(nn.Module):
             ang_vel (float): Maximum absolute player angular velocity.
             vel_puck (float): Maximum absolute puck velocity.
             t (float): Maximum time puck can be kept.
+            device (torch.device): Device used for computations.
         """
 
         super().__init__()
@@ -243,6 +248,7 @@ class CriticDQN(nn.Module):
             ang_vel,
             vel_puck,
             t,
+            device,
         )
         self.target_critic = Critic(
             state_dim,
@@ -257,6 +263,7 @@ class CriticDQN(nn.Module):
             ang_vel,
             vel_puck,
             t,
+            device,
         )
 
         # synchronize initially

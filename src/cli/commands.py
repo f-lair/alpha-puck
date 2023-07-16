@@ -119,6 +119,7 @@ def train(
         ang_vel,
         vel_puck,
         t,
+        device,
     )
     if checkpoint != "":
         q_model.load(checkpoint)
@@ -273,6 +274,7 @@ def test(
         ang_vel,
         vel_puck,
         t,
+        device,
     )
     q_model.load(checkpoint)
     q_model = q_model.to(device)
