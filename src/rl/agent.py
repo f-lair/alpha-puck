@@ -234,7 +234,9 @@ class Agent:
         optimizer.step()
 
         td_delta = td_target - q_estimate
-        replay_buffer.update_priorities(indices, torch.abs(td_delta.detach()).to(torch.float64))
+        replay_buffer.update_priorities(
+            indices, torch.abs(td_delta.detach().cpu()).to(torch.float64)
+        )
 
         return loss.item()
 

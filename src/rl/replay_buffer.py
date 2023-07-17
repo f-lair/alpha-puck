@@ -71,9 +71,7 @@ class ReplayBuffer:
         self.actual_size = 0
 
         # priority tree
-        self.priority_tree = SumTree(
-            size=self.size, data_size=1, data_type=torch.int64, device=self.device
-        )
+        self.priority_tree = SumTree(size=self.size, data_size=1, data_type=torch.int64)
         self.max_priority = min_priority
 
         # multi-step buffer
@@ -137,7 +135,7 @@ class ReplayBuffer:
         self.counter = (self.counter + 1) % self.size
         self.actual_size = min(self.size, self.actual_size + 1)
 
-        self.priority_tree.add(self.max_priority, torch.tensor(idx, device=self.device), idx)
+        self.priority_tree.add(self.max_priority, torch.tensor(idx), idx)
 
         self.states[idx] = state_t
         self.next_states[idx] = next_state_t
@@ -178,12 +176,10 @@ class ReplayBuffer:
         )
 
         segment = self.priority_tree.total / sample_size
-        lower = segment * torch.arange(sample_size, device=self.device)
-        upper = segment * torch.arange(1, sample_size + 1, device=self.device)
+        lower = segment * torch.arange(sample_size)
+        upper = segment * torch.arange(1, sample_size + 1)
 
-        cumsum = transform_uniform(
-            torch.rand(sample_size, device=self.device, dtype=torch.float64), lower, upper
-        )
+        cumsum = transform_uniform(torch.rand(sample_size, dtype=torch.float64), lower, upper)
         torch.clamp_(
             cumsum, min=0.0, max=self.priority_tree.total
         )  # counter numerical instabilities
@@ -261,7 +257,7 @@ class ReplayBuffer:
 
         # self.priority_tree.update(data_indices_, priorities_)
 
-        terminal = torch.zeros((len(data_indices),), device=self.device, dtype=torch.bool)
+        terminal = torch.zeros((len(data_indices),), dtype=torch.bool)
         for k in range(1, self.decay_window + 1):
             prior_data_indices = data_indices - k
             terminal = torch.logical_and(terminal, self.terminals[prior_data_indices].bool())
@@ -279,9 +275,7 @@ class SumTree:
 
     # cf. https://github.com/Howuhh/prioritized_experience_replay/blob/main/memory/tree.py
 
-    def __init__(
-        self, size: int, data_size: int, data_type: torch.dtype, device: torch.device
-    ) -> None:
+    def __init__(self, size: int, data_size: int, data_type: torch.dtype) -> None:
         """
         Initializes sum tree.
 
@@ -289,14 +283,12 @@ class SumTree:
             size (int): Number of leaf nodes.
             data_size (int): Vector size per leaf node.
             data_type (torch.dtype): Vector data type of leaf nodes.
-            device (torch.device): Device used for computations.
         """
 
-        self.nodes = torch.zeros((2 * size - 1,), device=device, dtype=torch.float64)
-        self.data = torch.zeros((size, data_size), device=device, dtype=data_type)
+        self.nodes = torch.zeros((2 * size - 1,), dtype=torch.float64)
+        self.data = torch.zeros((size, data_size), dtype=data_type)
 
         self.size = size
-        self.device = device
 
     @property
     def total(self) -> float:
@@ -324,7 +316,7 @@ class SumTree:
 
         # NOTE: data_indices are always sorted due to arange-based segment creation in sample()
         indices_unique, unique_inv = torch.unique_consecutive(data_indices, return_inverse=True)
-        values_unique = torch.zeros(indices_unique.shape, device=self.device, dtype=values.dtype)
+        values_unique = torch.zeros(indices_unique.shape, dtype=values.dtype)
         values_unique[unique_inv] = values
 
         tree_indices = indices_unique + self.size - 1
@@ -368,8 +360,8 @@ class SumTree:
 
         self.data[idx] = data
         self.update(
-            torch.tensor([idx], device=self.device),
-            torch.tensor([value], device=self.device, dtype=torch.float64),
+            torch.tensor([idx]),
+            torch.tensor([value], dtype=torch.float64),
         )
 
     def get(self, cumsum: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
@@ -389,17 +381,17 @@ class SumTree:
 
         compute_mask = lambda indices: 2 * indices + 1 < len(self.nodes)
 
-        tree_indices = torch.zeros_like(cumsum, device=self.device, dtype=torch.int64)
+        tree_indices = torch.zeros_like(cumsum, dtype=torch.int64)
         mask = compute_mask(tree_indices)
 
         while torch.any(mask):
             left = 2 * tree_indices + 1
             right = left + 1
 
-            left_mask = torch.zeros_like(cumsum, device=self.device, dtype=torch.bool)
+            left_mask = torch.zeros_like(cumsum, dtype=torch.bool)
             left_mask[mask] = cumsum[mask] <= self.nodes[left[mask]]
 
-            right_mask = torch.zeros_like(cumsum, device=self.device, dtype=torch.bool)
+            right_mask = torch.zeros_like(cumsum, dtype=torch.bool)
             right_mask[mask] = cumsum[mask] > self.nodes[left[mask]]
 
             tree_indices[left_mask] = left[left_mask]
