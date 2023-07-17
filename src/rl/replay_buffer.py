@@ -184,6 +184,9 @@ class ReplayBuffer:
         cumsum = transform_uniform(
             torch.rand(sample_size, device=self.device, dtype=torch.float64), lower, upper
         )
+        torch.clamp_(
+            cumsum, min=0.0, max=self.priority_tree.total
+        )  # counter numerical instabilities
         data_indices, priorities, sample_indices = self.priority_tree.get(cumsum)
         sample_indices = sample_indices[:, 0]
 
