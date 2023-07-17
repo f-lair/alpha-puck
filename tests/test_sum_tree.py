@@ -83,7 +83,7 @@ N = 42
 
 @pytest.fixture
 def example_sum_tree():
-    sum_tree = SumTree(N, 1, torch.int64)
+    sum_tree = SumTree(N, 1, torch.int64, torch.device("cpu"))
 
     for idx in range(N):
         sum_tree.add(float(idx), torch.tensor([N - 1 - idx]), idx)
@@ -131,10 +131,10 @@ def test_update():
 
         return correct
 
-    sum_tree = SumTree(N, 1, torch.int64)
+    sum_tree = SumTree(N, 1, torch.int64, torch.device("cpu"))
     data_indices = torch.multinomial(torch.full((N,), 1 / N), N, replacement=True).to(torch.int64)
     data_indices = torch.sort(data_indices)[0]
-    values = N * torch.rand((N,), dtype=torch.float32)[data_indices]
+    values = N * torch.rand((N,), dtype=torch.float64)[data_indices]
     sum_tree.update(data_indices, values)
 
     base_sum_tree = BaseSumTree(N)

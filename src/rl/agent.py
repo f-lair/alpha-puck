@@ -205,12 +205,12 @@ class Agent:
             indices,
         ) = replay_buffer.sample(batch_size)
 
-        states = states.to(self.device)
-        next_states = next_states.to(self.device)
-        actions = actions.to(self.device)
-        rewards = rewards.to(self.device)
-        terminals = terminals.to(self.device)
-        weights = weights.to(self.device)
+        # states = states.to(self.device)
+        # next_states = next_states.to(self.device)
+        # actions = actions.to(self.device)
+        # rewards = rewards.to(self.device)
+        # terminals = terminals.to(self.device)
+        # weights = weights.to(self.device)
 
         optimizer.zero_grad()
 
@@ -234,7 +234,7 @@ class Agent:
         optimizer.step()
 
         td_delta = td_target - q_estimate
-        replay_buffer.update_priorities(indices, torch.abs(td_delta.detach()).cpu())
+        replay_buffer.update_priorities(indices, torch.abs(td_delta.detach()).to(torch.float64))
 
         return loss.item()
 

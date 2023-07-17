@@ -145,6 +145,7 @@ def train(
         gamma,
         nu,
         rho,
+        device,
     )
     exploration_strategy = EpsilonGreedyExpDecay(
         epsilon_start, epsilon_min, decay_factor, discretization_dim
