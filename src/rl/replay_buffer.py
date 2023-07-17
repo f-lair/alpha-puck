@@ -206,7 +206,7 @@ class ReplayBuffer:
             actions,
             rewards,
             terminals,
-            weights.to(torch.float32),
+            weights.to(device=self.device, dtype=torch.float32),
             data_indices,
         )
 
