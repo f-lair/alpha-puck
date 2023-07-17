@@ -258,9 +258,10 @@ class ReplayBuffer:
         # self.priority_tree.update(data_indices_, priorities_)
 
         terminal = torch.zeros((len(data_indices),), dtype=torch.bool)
+        terminals_cpu = self.terminals.to(device="cpu", dtype=torch.bool)
         for k in range(1, self.decay_window + 1):
             prior_data_indices = data_indices - k
-            terminal = torch.logical_and(terminal, self.terminals[prior_data_indices].bool())
+            terminal = torch.logical_and(terminal, terminals_cpu[prior_data_indices])
             prior_data_indices = prior_data_indices[~terminal]
 
             prior_priorities = priorities[~terminal] * self.rho[k - 1]
