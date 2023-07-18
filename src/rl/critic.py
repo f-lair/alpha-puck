@@ -139,11 +139,13 @@ class Critic(nn.Module):
         self.state_norm = StateNormalization(w, h, vel, ang, ang_vel, vel_puck, t)
         self.lin1 = nn.Linear(state_dim, hidden_dim)
         self.lin2 = nn.Linear(hidden_dim, hidden_dim)
-        self.lin3 = nn.Linear(hidden_dim, action_dim * discretization_dim)
+        self.lin3 = nn.Linear(hidden_dim, hidden_dim)
+        self.lin4 = nn.Linear(hidden_dim, action_dim * discretization_dim)
 
         self.act = nn.ELU()  # ELU instead of ReLU (?)
 
-        self.layer_norm = nn.LayerNorm(hidden_dim)
+        self.layer_norm1 = nn.LayerNorm(hidden_dim)
+        self.layer_norm2 = nn.LayerNorm(hidden_dim)
 
     def forward(self, state: torch.Tensor) -> torch.Tensor:
         """
@@ -165,12 +167,14 @@ class Critic(nn.Module):
         else:
             out1 = self.state_norm(state)
             out1 = self.lin1(out1)
-        # no activation after first fc layer (?)
         out = self.lin2(out1)
-        out += out1  # residual connection
-        out = self.layer_norm(out)
+        out = self.layer_norm1(out)
         out = self.act(out)
         out = self.lin3(out)
+        out = self.layer_norm2(out)
+        out += out1  # residual connection
+        out = self.act(out)
+        out = self.lin4(out)
 
         return out.view(-1, self.action_dim, self.discretization_dim)
 
