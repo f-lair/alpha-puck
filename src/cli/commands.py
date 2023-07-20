@@ -2,7 +2,6 @@ from datetime import datetime
 from pathlib import Path
 
 import numpy as np
-import torch
 from torch import nn, optim
 from torch.utils.tensorboard.writer import SummaryWriter
 from tqdm import tqdm
@@ -263,6 +262,9 @@ def train(
             episode_idx += 1
     logger.add_hparams(hparams, hparam_metrics_dict, run_name="hparams")
 
+    logger.close()
+    env.close()
+
 
 def test(
     hidden_dim: int,
@@ -304,7 +306,7 @@ def test(
 
     env = get_env_from_mode(mode)
 
-    q_model = CriticDQN(
+    q_model = Critic(
         state_dim,
         hidden_dim,
         action_dim,
@@ -334,6 +336,8 @@ def test(
     print(f"Draws: {num_draws} / {num_eval_episodes} ({num_draws / num_eval_episodes:.1%})")
     print(f"Defeats: {num_defeats} / {num_eval_episodes} ({num_defeats / num_eval_episodes:.1%})")
     print(f"Winning percentage: {winning_percentage:.1%}")
+
+    env.close()
 
 
 def play(**kwargs) -> None:
