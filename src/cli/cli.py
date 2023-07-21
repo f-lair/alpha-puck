@@ -217,10 +217,28 @@ class CLI:
             help="Number of frames after which the target critic is updated.",
         )
         self.train_parser.add_argument(
-            "--change-opponent-freq",
+            "--max-num-opponents",
+            type=int,
+            default=7,
+            help="Maximum number of opponents.",
+        )
+        self.train_parser.add_argument(
+            "--num-episodes-weak",
             type=int,
             default=1000,
-            help="Number of episodes after which opponents are changed in mode 5.",
+            help="Number of episodes agains weak bot until change.",
+        )
+        self.train_parser.add_argument(
+            "--num-episodes-strong",
+            type=int,
+            default=1000,
+            help="Number of episodes agains strong bot until change.",
+        )
+        self.train_parser.add_argument(
+            "--num-episodes-self",
+            type=int,
+            default=200,
+            help="Number of episodes in self-play until change.",
         )
         self.train_parser.add_argument(
             "--num-warmup-frames",

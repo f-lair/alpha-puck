@@ -1,6 +1,8 @@
 import random
+from collections import deque
+from copy import deepcopy
 from enum import IntEnum
-from typing import Tuple
+from typing import Deque, Tuple
 
 import laserhockey.hockey_env as h_env
 import numpy as np
@@ -17,8 +19,9 @@ class Mode(IntEnum):
     TRAIN_ATK = 1
     PLAY_WEAK = 2
     PLAY_STRONG = 3
-    PLAY_RL = 4
+    PLAY_SELF = 4
     PLAY_WEAK_STRONG = 5
+    PLAY_WEAK_STRONG_SELF = 6
 
 
 def setup_rng(rng_seed: int) -> None:
@@ -82,7 +85,7 @@ def get_env_from_mode(mode: int) -> h_env.HockeyEnv:
     Returns hockey environment, specified by mode.
 
     Args:
-        mode (int): Environment mode: 0 (defense), 1 (attacking), 2 (play vs. weak bot), 3 (play vs. strong bot), 4 (play vs. AI), 5 (play vs. weak and strong bot).
+        mode (int): Environment mode: 0 (defense), 1 (attacking), 2 (play vs. weak bot), 3 (play vs. strong bot), 4 (self-play), 5 (play vs. weak and strong bot), 6 (play vs. weak and strong bot + self-play).
 
     Returns:
         h_env.HockeyEnv: Hockey environment.
@@ -96,33 +99,88 @@ def get_env_from_mode(mode: int) -> h_env.HockeyEnv:
         return h_env.HockeyEnv(mode=h_env.HockeyEnv.NORMAL)
 
 
-def get_opponent_from_mode(
-    agent: Agent, mode: int
-) -> Tuple[Agent | h_env.BasicOpponent, Agent | h_env.BasicOpponent]:
+def get_opponents_from_mode(
+    agent: Agent,
+    mode: int,
+    max_num_opponents: int,
+    num_episodes_weak: int,
+    num_episodes_strong: int,
+    num_episodes_self: int,
+) -> Deque[Tuple[str, Agent | h_env.BasicOpponent, int]]:
     """
     Returns opponent agent, specified by mode.
 
     Args:
         agent (Agent): Protagonist RL agent.
-        mode (int): Environment mode: 0 (defense), 1 (attacking), 2 (play vs. weak bot), 3 (play vs. strong bot), 4 (play vs. AI), 5 (play vs. weak and strong bot).
+        mode (int): Environment mode: 0 (defense), 1 (attacking), 2 (play vs. weak bot), 3 (play vs. strong bot), 4 (self-play), 5 (play vs. weak and strong bot), 6 (play vs. weak and strong bot + self-play).
+        max_num_opponents (int): Maximum number of opponents.
+        num_episodes_weak (int): Number of episodes agains weak bot until change.
+        num_episodes_strong (int): Number of episodes agains strong bot until change.
+        num_episodes_self (int): Number of episodes in self-play until change.
 
     Raises:
-        ValueError: Modes above 4 are invalid.
+        ValueError: Modes above 6 are invalid.
 
     Returns:
-        Tuple[Agent | h_env.BasicOpponent, Agent | h_env.BasicOpponent]: Opponent agent(s).
+        Deque[Tuple[str, Agent | h_env.BasicOpponent, int]]: Opponent name, Opponent agent, number of episodes until change.
     """
 
+    opponents = deque(maxlen=max_num_opponents)
+
     if mode <= Mode.PLAY_WEAK:
-        return h_env.BasicOpponent(weak=True), h_env.BasicOpponent(weak=True)
+        opponents.append(("Weak", h_env.BasicOpponent(weak=True), num_episodes_weak))
     elif mode == Mode.PLAY_STRONG:
-        return h_env.BasicOpponent(weak=False), h_env.BasicOpponent(weak=False)
-    elif mode == Mode.PLAY_RL:
-        return agent, agent
+        opponents.append(("Strong", h_env.BasicOpponent(weak=False), num_episodes_strong))
+    elif mode == Mode.PLAY_SELF:
+        opponents.append(("Self", deepcopy(agent), num_episodes_self))
     elif mode == Mode.PLAY_WEAK_STRONG:
-        return h_env.BasicOpponent(weak=True), h_env.BasicOpponent(weak=False)
+        opponents.append(("Weak", h_env.BasicOpponent(weak=True), num_episodes_weak))
+        opponents.append(("Strong", h_env.BasicOpponent(weak=False), num_episodes_strong))
+    elif mode == Mode.PLAY_WEAK_STRONG_SELF:
+        opponents.append(("Weak", h_env.BasicOpponent(weak=True), num_episodes_weak))
+        opponents.append(("Strong", h_env.BasicOpponent(weak=False), num_episodes_strong))
+        opponents.append(("Self", deepcopy(agent), num_episodes_self))
     else:
         raise ValueError(f"Invalid mode: {mode}.")
+
+    return opponents
+
+
+def update_opponents(
+    agent: Agent,
+    mode: int,
+    opponents: Deque[Tuple[str, Agent | h_env.BasicOpponent, int]],
+    num_episodes_self: int,
+) -> None:
+    """
+    Updates self-play opponents in-place.
+
+    Args:
+        agent (Agent): Current learning agent.
+        mode (int): Environment mode: 0 (defense), 1 (attacking), 2 (play vs. weak bot), 3 (play vs. strong bot), 4 (self-play), 5 (play vs. weak and strong bot), 6 (play vs. weak and strong bot + self-play).
+        opponents (Deque[Tuple[str, Agent  |  h_env.BasicOpponent, int]]): Opponent name, Opponent agent, number of episodes until change.
+        num_episodes_self (int): Number of episodes in self-play until change.
+    """
+
+    if mode == Mode.PLAY_SELF:
+        # can simply add new self-play agent to FIFO
+        opponents.append(("Self", deepcopy(agent), num_episodes_self))
+    elif mode == Mode.PLAY_WEAK_STRONG_SELF:
+        # save original FIFO length
+        num_opponents = len(opponents)
+        # first two items are bots, which should be preserved
+        weak = opponents.popleft()
+        strong = opponents.popleft()
+        # remove old self-play agent, if FIFO was full before update start
+        if num_opponents == opponents.maxlen:
+            _ = opponents.popleft()
+        # add weak and strong bots again
+        opponents.appendleft(strong)
+        opponents.appendleft(weak)
+        # add new self-play agent
+        opponents.append(("Self", deepcopy(agent), num_episodes_self))
+    else:
+        return
 
 
 def play_eval(
@@ -141,7 +199,7 @@ def play_eval(
         env (h_env.HockeyEnv): Hockey environment.
         agent_p1 (Agent): Protagonist RL agent.
         agent_p2 (Agent | h_env.BasicOpponent): Opponent agent.
-        mode (int): Environment mode: 0 (defense), 1 (attacking), 2 (play vs. weak bot), 3 (play vs. strong bot), 4 (play vs. AI).
+        mode (int): Environment mode: 0 (defense), 1 (attacking), 2 (play vs. weak bot), 3 (play vs. strong bot), 4 (self-play), 5 (play vs. weak and strong bot), 6 (play vs. weak and strong bot + self-play).
         num_episodes (int): Number of evaluation episodes.
         disable_rendering (bool): Disables graphical rendering.
         disable_progress_bar (bool): Disables progress bar.
@@ -163,7 +221,7 @@ def play_eval(
                 env.render()
 
             action_c_p1, _ = agent_p1.act(state_p1, eval_=True)
-            if mode == Mode.PLAY_RL:
+            if isinstance(agent_p2, Agent):
                 action_c_p2, _ = agent_p2.act(state_p2, eval_=True)  # type: ignore
             else:
                 action_c_p2 = agent_p2.act(state_p2)
