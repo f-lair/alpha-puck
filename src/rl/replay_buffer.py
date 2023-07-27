@@ -3,7 +3,6 @@ from typing import Tuple
 
 import numpy as np
 import torch
-from torch_scatter import segment_csr
 
 
 class ReplayBuffer:
