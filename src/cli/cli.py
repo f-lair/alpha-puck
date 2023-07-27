@@ -27,11 +27,10 @@ class CLI:
 
         ## Global arguments
         self.main_parser.add_argument(
-            "-v",
-            "--verbose",
-            default=False,
-            action="store_true",
-            help="Activates verbose console output.",
+            "--agent-name",
+            type=str,
+            default="DecQN",
+            help="Agent name.",
         )
         self.main_parser.add_argument(
             "--hidden-dim",
@@ -82,6 +81,18 @@ class CLI:
             help="Random number generator seed. Set to negative values to generate a random seed.",
         )
         self.main_parser.add_argument(
+            "--logging-dir",
+            type=str,
+            default="../runs/",
+            help="Logging directory.",
+        )
+        self.main_parser.add_argument(
+            "--logging-name",
+            type=str,
+            default="",
+            help="Logging run name. Defaults to date and time, if empty.",
+        )
+        self.main_parser.add_argument(
             "--checkpoint",
             type=str,
             default="",
@@ -91,7 +102,7 @@ class CLI:
             "--num-eval-episodes",
             type=int,
             default=100,
-            help="Number of evaluation episodes.",
+            help="Number of evaluation episodes. Unlimited for 'play', if negative.",
         )
         self.main_parser.add_argument(
             "--disable-rendering",
@@ -247,18 +258,6 @@ class CLI:
             help="Number of initial frames before learning is started.",
         )
         self.train_parser.add_argument(
-            "--logging-dir",
-            type=str,
-            default="../runs/",
-            help="Logging directory.",
-        )
-        self.train_parser.add_argument(
-            "--logging-name",
-            type=str,
-            default="",
-            help="Logging run name. Defaults to date and time, if empty.",
-        )
-        self.train_parser.add_argument(
             "--log-freq",
             type=int,
             default=10_000,
@@ -272,7 +271,18 @@ class CLI:
         )
 
         ## Play arguments
-        # TODO: Add arguments
+        self.play_parser.add_argument(
+            "--user-name",
+            type=str,
+            default="AlphaPuck",
+            help="Remote user name.",
+        )
+        self.play_parser.add_argument(
+            "--user-password",
+            type=str,
+            required=True,
+            help="Remote user password.",
+        )
 
     def __call__(self) -> None:
         args = self.main_parser.parse_args()

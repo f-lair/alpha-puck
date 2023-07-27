@@ -17,6 +17,7 @@ from cli.utils import (
     setup_rng,
     update_opponents,
 )
+from remote.client.backend.client import Client
 from rl.agent import Agent
 from rl.critic import Critic, CriticDQN
 from rl.exploration_strategy import EpsilonGreedyExpDecay
@@ -24,6 +25,7 @@ from rl.replay_buffer import ReplayBuffer
 
 
 def train(
+    agent_name: str,
     hidden_dim: int,
     discretization_dim: int,
     no_state_norm: bool,
@@ -69,6 +71,7 @@ def train(
     CLI command for RL agent training.
 
     Args:
+        agent_name (str): Agent name.
         hidden_dim (int): Dimensionality of the hidden layers in the critic model.
         discretization_dim (int): Dimensionality of the action discretization.
         no_state_norm (bool): Disables state normalization.
@@ -159,7 +162,13 @@ def train(
     optimizer = optim.Adam(params=q_model.main_parameters(), lr=learning_rate)
     loss_fn = nn.SmoothL1Loss(reduction="sum").to(device)  # type: ignore
     agent_p1 = Agent(
-        q_model, discretization_dim, max_abs_force, max_abs_torque, device, exploration_strategy
+        agent_name,
+        q_model,
+        discretization_dim,
+        max_abs_force,
+        max_abs_torque,
+        device,
+        exploration_strategy,
     )
     opponents = get_opponents_from_mode(
         agent_p1,
@@ -258,7 +267,7 @@ def train(
                             if isinstance(agent_p2, Agent):
                                 agent_p2_name += str(agent_p2_idx)
                             num_wins, num_draws, num_defeats = play_eval(
-                                env, agent_p1, agent_p2, mode, num_eval_episodes, True, True
+                                env, agent_p1, agent_p2, num_eval_episodes, True, True
                             )
                             winning_percentage = compute_winning_percentage(
                                 num_wins, num_draws, num_eval_episodes
@@ -301,6 +310,7 @@ def train(
 
 
 def test(
+    agent_name: str,
     hidden_dim: int,
     discretization_dim: int,
     no_state_norm: bool,
@@ -319,6 +329,7 @@ def test(
     CLI command for RL agent testing/evaluation.
 
     Args:
+        agent_name (str): Agent name.
         hidden_dim (int): Dimensionality of the hidden layers in the critic model.
         discretization_dim (int): Dimensionality of the action discretization.
         no_state_norm (bool): Disables state normalization.
@@ -360,11 +371,13 @@ def test(
     q_model.load(checkpoint)
     q_model = q_model.to(device)
 
-    agent_p1 = Agent(q_model, discretization_dim, max_abs_force, max_abs_torque, device)
+    agent_p1 = Agent(
+        agent_name, q_model, discretization_dim, max_abs_force, max_abs_torque, device
+    )
     _, agent_p2, _ = get_opponents_from_mode(agent_p1, mode, 1, 0, 0, 0)[0]
 
     num_wins, num_draws, num_defeats = play_eval(
-        env, agent_p1, agent_p2, mode, num_eval_episodes, disable_rendering, disable_progress_bar
+        env, agent_p1, agent_p2, num_eval_episodes, disable_rendering, disable_progress_bar
     )
     winning_percentage = compute_winning_percentage(num_wins, num_draws, num_eval_episodes)
 
@@ -376,13 +389,80 @@ def test(
     env.close()
 
 
-def play(**kwargs) -> None:
+def play(
+    agent_name: str,
+    hidden_dim: int,
+    discretization_dim: int,
+    no_state_norm: bool,
+    max_abs_force: float,
+    max_abs_torque: float,
+    no_gpu: bool,
+    rng_seed: int,
+    logging_dir: str,
+    logging_name: str,
+    checkpoint: str,
+    num_eval_episodes: int,
+    user_name: str,
+    user_password: str,
+    **kwargs,
+) -> None:
     """
     CLI command for RL agent remote play.
 
-    Raises:
-        NotImplementedError: TBD.
+    Args:
+        agent_name (str): Agent name.
+        hidden_dim (int): Dimensionality of the hidden layers in the critic model.
+        discretization_dim (int): Dimensionality of the action discretization.
+        no_state_norm (bool): Disables state normalization.
+        max_abs_force (float): Maximum absolute force used for translation.
+        max_abs_torque (float): Maximum absolute torque used for rotation.
+        no_gpu (bool): Disables CUDA.
+        rng_seed (int): Random number generator seed. Set to negative values to generate a random seed.
+        logging_dir (str): Logging directory.
+        logging_name (str): Logging run name. Defaults to date and time, if empty.
+        checkpoint (str): Path to checkpoint for evaluation/further training.
+        num_eval_episodes (int): Number of evaluation episodes. Unlimited, if negative.
+        user_name (str): Remote user name.
+        user_password (str): Remote user password.
     """
 
-    # TODO: Implement remote play
-    raise NotImplementedError
+    setup_rng(rng_seed)
+    device = get_device(no_gpu)
+
+    state_dim, action_dim, w, h, vel, ang, ang_vel, vel_puck, t = get_env_parameters()
+
+    q_model = Critic(
+        state_dim,
+        hidden_dim,
+        action_dim,
+        discretization_dim,
+        no_state_norm,
+        w,
+        h,
+        vel,
+        ang,
+        ang_vel,
+        vel_puck,
+        t,
+        device,
+    )
+    q_model.load(checkpoint)
+    q_model = q_model.to(device)
+
+    agent_p1 = Agent(
+        agent_name, q_model, discretization_dim, max_abs_force, max_abs_torque, device
+    )
+
+    if logging_name == "":
+        logging_name = datetime.now().strftime("%m_%d_%y__%H_%M")
+    log_path = Path(logging_dir).joinpath(logging_name)
+
+    client = Client(
+        username=user_name,
+        password=user_password,
+        controller=agent_p1,
+        output_path=str(log_path),
+        interactive=False,
+        op='start_queuing',
+        num_games=num_eval_episodes if num_eval_episodes >= 0 else None,
+    )

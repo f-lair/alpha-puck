@@ -187,7 +187,6 @@ def play_eval(
     env: h_env.HockeyEnv,
     agent_p1: Agent,
     agent_p2: Agent | h_env.BasicOpponent,
-    mode: int,
     num_episodes: int,
     disable_rendering: bool,
     disable_progress_bar: bool,

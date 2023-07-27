@@ -5,15 +5,17 @@ import numpy as np
 import torch
 from torch import nn, optim
 
+from remote.client.remoteControllerInterface import RemoteControllerInterface
 from rl.critic import Critic, CriticDQN
 from rl.replay_buffer import ReplayBuffer
 
 
-class Agent:
+class Agent(RemoteControllerInterface):
     """Implements DecQN RL Agent."""
 
     def __init__(
         self,
+        name: str,
         q_model: Critic | CriticDQN,
         discretization_dim: int,
         max_abs_force: float,
@@ -25,6 +27,7 @@ class Agent:
         Initializes RL agent.
 
         Args:
+            name (str): Agent name.
             q_model (Critic | CriticDQN): Critic model.
             discretization_dim (int): Dimensionality of the action discretization.
             max_abs_force (float): Maximum absolute force used for translation.
@@ -32,6 +35,8 @@ class Agent:
             device (torch.device): Device used for computations.
             exploration_strategy (Callable[[torch.Tensor], torch.Tensor] | None, optional): Strategy used for action space exploration. Defaults to None.
         """
+
+        super().__init__(name)
 
         self.q_model = q_model
         self.device = device
@@ -170,6 +175,19 @@ class Agent:
             action = self.exploration_strategy(action)
 
         return self._d2c(action).cpu().numpy(), action.cpu().numpy()
+
+    def remote_act(self, state: np.ndarray) -> np.ndarray:
+        """
+        Acts in environment, yielding an action, given a state, for remote-play.
+
+        Args:
+            state (np.ndarray): State [S].
+
+        Returns:
+            np.ndarray: Action (continuous) [A].
+        """
+
+        return self.act(state, eval_=True)[0]
 
     def learn(
         self,
