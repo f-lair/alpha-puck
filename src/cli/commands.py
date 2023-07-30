@@ -12,10 +12,9 @@ from cli.utils import (
     get_device,
     get_env_from_mode,
     get_env_parameters,
-    get_opponents_from_mode,
+    get_league_from_mode,
     play_eval,
     setup_rng,
-    update_opponents,
 )
 from remote.client.backend.client import Client
 from rl.agent import Agent
@@ -46,10 +45,11 @@ def train(
     decay_factor: float,
     num_frames: int,
     mode: int,
-    max_num_opponents: int,
-    num_episodes_weak: int,
-    num_episodes_strong: int,
-    num_episodes_self: int,
+    league_size: int,
+    weak_p: float,
+    strong_p: float,
+    self_p: float,
+    league_change_freq: int,
     max_abs_force: float,
     max_abs_torque: float,
     learn_freq: int,
@@ -92,10 +92,11 @@ def train(
         decay_factor (float): Decay factor for epsilon in the epsilon-greedy exploration strategy.
         num_frames (int): Total number of frames used for training.
         mode (int): Environment mode: 0 (defense), 1 (attacking), 2 (play vs. weak bot), 3 (play vs. strong bot), 4 (self-play), 5 (play vs. weak and strong bot), 6 (play vs. weak and strong bot + self-play).
-        max_num_opponents (int): Maximum number of opponents.
-        num_episodes_weak (int): Number of episodes agains weak bot until change.
-        num_episodes_strong (int): Number of episodes agains strong bot until change.
-        num_episodes_self (int): Number of episodes in self-play until change.
+        league_size (int): Size of past-agents' league.
+        weak_p (float): Probability of sampling weak opponent.
+        strong_p (float): Probability of sampling strong opponent.
+        self_p (float): Probability of sampling current agent as opponent.
+        league_change_freq (int): Number of frames after which past-agents are updated.
         max_abs_force (float): Maximum absolute force used for translation.
         max_abs_torque (float): Maximum absolute torque used for rotation.
         learn_freq (int): Number of frames after which a learning step is performed.
@@ -170,25 +171,15 @@ def train(
         device,
         exploration_strategy,
     )
-    opponents = get_opponents_from_mode(
+    league = get_league_from_mode(
         agent_p1,
         mode,
-        max_num_opponents,
-        num_episodes_weak,
-        num_episodes_strong,
-        num_episodes_self,
+        league_size,
+        weak_p,
+        strong_p,
+        self_p,
     )
-    if mode in {Mode.PLAY_WEAK_STRONG, Mode.PLAY_WEAK_STRONG_SELF}:
-        eval_opponents = opponents
-    else:
-        eval_opponents = get_opponents_from_mode(
-            agent_p1,
-            Mode.PLAY_WEAK_STRONG,
-            max_num_opponents,
-            num_episodes_weak,
-            num_episodes_strong,
-            num_episodes_self,
-        )
+    eval_opponents = {"Weak": league.league1_agents[0], "Strong": league.league1_agents[1]}
 
     if logging_name == "":
         logging_name = datetime.now().strftime("%m_%d_%y__%H_%M")
@@ -201,12 +192,9 @@ def train(
     }
 
     frame_idx = 0
-    episode_idx = 0  # not total index, reset to zero after each opponent change
     log_terminal_idx = 0
+    league_terminal_idx = 0
     pbar_stats = {"loss": 0.0}
-
-    opponent_idx = 0
-    _, agent_p2, num_episodes_opponent = opponents[opponent_idx]
 
     with tqdm(total=num_frames, disable=disable_progress_bar, postfix=pbar_stats) as pbar:
         while frame_idx < num_frames:
@@ -216,13 +204,7 @@ def train(
             terminal = False
             cumulative_reward = 0.0
 
-            # update opponent agent(s)
-            if episode_idx == num_episodes_opponent:
-                episode_idx = 0
-                opponent_idx = (opponent_idx + 1) % len(opponents)
-                if opponent_idx == 0:
-                    update_opponents(agent_p1, mode, opponents, num_episodes_self)
-                _, agent_p2, num_episodes_opponent = opponents[opponent_idx]
+            agent_p2, league2_idx = league.sample()
 
             while not terminal:
                 if not disable_rendering:
@@ -261,11 +243,7 @@ def train(
                         pbar.set_postfix(pbar_stats)
 
                     if frame_idx % eval_freq == 0:
-                        for agent_p2_idx, (agent_p2_name, agent_p2, _) in enumerate(
-                            eval_opponents
-                        ):
-                            if isinstance(agent_p2, Agent):
-                                agent_p2_name += str(agent_p2_idx)
+                        for agent_p2_name, agent_p2 in eval_opponents.items():
                             num_wins, num_draws, num_defeats = play_eval(
                                 env, agent_p1, agent_p2, num_eval_episodes, True, True
                             )
@@ -286,23 +264,26 @@ def train(
                                 winning_percentage,
                                 frame_idx,
                             )
-                            if not isinstance(agent_p2, Agent):
-                                hparam_metrics_dict[
-                                    f"hparam/{agent_p2_name.lower()}-winning-percentage"
-                                ] = winning_percentage
+                            hparam_metrics_dict[
+                                f"hparam/{agent_p2_name.lower()}-winning-percentage"
+                            ] = winning_percentage
                         agent_p1.save_model(str(model_filepath))
 
                     if frame_idx % update_target_freq == 0:
                         agent_p1.update_target_network()
 
                     if terminal:
+                        if league2_idx is not None:
+                            league.update_statistics(info["winner"] + 1, 1, league2_idx)
                         if frame_idx // eval_freq >= log_terminal_idx:
                             logger.add_scalar("Learning-Game-Outcome", info["winner"], frame_idx)
                             logger.add_scalar(
                                 "Learning-Cumulative-Reward", cumulative_reward, frame_idx
                             )
                             log_terminal_idx += 1
-            episode_idx += 1
+                        if frame_idx // league_change_freq > league_terminal_idx:
+                            league.add_past_agent()
+                            league_terminal_idx += 1
     logger.add_hparams(hparams, hparam_metrics_dict, run_name="hparams")
 
     logger.close()
@@ -374,7 +355,8 @@ def test(
     agent_p1 = Agent(
         agent_name, q_model, discretization_dim, max_abs_force, max_abs_torque, device
     )
-    _, agent_p2, _ = get_opponents_from_mode(agent_p1, mode, 1, 0, 0, 0)[0]
+    league = get_league_from_mode(agent_p1, mode, 1, 1.0, 1.0, 1.0)
+    agent_p2, _ = league.sample()
 
     num_wins, num_draws, num_defeats = play_eval(
         env, agent_p1, agent_p2, num_eval_episodes, disable_rendering, disable_progress_bar
