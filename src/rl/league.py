@@ -56,7 +56,15 @@ class League:
         if league1_idx < len(self.league1_agents):
             return self.league1_agents[league1_idx], None
         else:
-            league2_p = (1.0 - self.league2_w / (2 * self.league2_t)) ** 2
+            league2_p = (
+                1.0
+                - np.divide(
+                    self.league2_w,
+                    2 * self.league2_t,
+                    out=np.zeros(self.league2_w.shape, dtype=np.float64),
+                    where=self.league2_t != 0,
+                )
+            ) ** 2
             league2_p /= league2_p.sum()
 
             league2_idx = np.random.choice(len(league2_p), p=league2_p)
