@@ -59,17 +59,15 @@ class League:
             league2_p = (
                 1.0
                 - np.divide(
-                    self.league2_w,
-                    2 * self.league2_t,
-                    out=np.zeros(self.league2_w.shape, dtype=np.float64),
-                    where=self.league2_t != 0,
+                    self.league2_w[: len(self.league2_agents)],
+                    2 * self.league2_t[: len(self.league2_agents)],
+                    out=np.zeros((len(self.league2_agents),), dtype=np.float64),
+                    where=self.league2_t[: len(self.league2_agents)] != 0,
                 )
             ) ** 2
             league2_p /= league2_p.sum()
 
-            league2_idx = np.random.choice(
-                len(self.league2_agents), p=league2_p[: len(self.league2_agents)]
-            )
+            league2_idx = np.random.choice(len(self.league2_agents), p=league2_p)
             return self.league2_agents[league2_idx], league2_idx
 
     def update_statistics(self, num_points: int, num_games: int, league2_idx: int) -> None:
