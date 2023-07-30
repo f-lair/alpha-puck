@@ -67,7 +67,9 @@ class League:
             ) ** 2
             league2_p /= league2_p.sum()
 
-            league2_idx = np.random.choice(len(league2_p), p=league2_p)
+            league2_idx = np.random.choice(
+                len(self.league2_agents), p=league2_p[: len(self.league2_agents)]
+            )
             return self.league2_agents[league2_idx], league2_idx
 
     def update_statistics(self, num_points: int, num_games: int, league2_idx: int) -> None:
