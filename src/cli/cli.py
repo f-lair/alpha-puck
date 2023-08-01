@@ -136,7 +136,6 @@ class CLI:
             default=40.0,
             help="Maximum gradient norm above which gradients are clipped to.",
         )
-
         self.train_parser.add_argument(
             "--replay-buffer-size",
             type=int,
@@ -228,28 +227,34 @@ class CLI:
             help="Number of frames after which the target critic is updated.",
         )
         self.train_parser.add_argument(
-            "--max-num-opponents",
+            "--league-size",
             type=int,
-            default=7,
-            help="Maximum number of opponents.",
+            default=10,
+            help="Size of past-agents' league.",
         )
         self.train_parser.add_argument(
-            "--num-episodes-weak",
-            type=int,
-            default=1000,
-            help="Number of episodes agains weak bot until change.",
+            "--weak-p",
+            type=float,
+            default=0.1,
+            help="Probability of sampling weak opponent.",
         )
         self.train_parser.add_argument(
-            "--num-episodes-strong",
-            type=int,
-            default=1000,
-            help="Number of episodes agains strong bot until change.",
+            "--strong-p",
+            type=float,
+            default=0.1,
+            help="Probability of sampling strong opponent.",
         )
         self.train_parser.add_argument(
-            "--num-episodes-self",
+            "--self-p",
+            type=float,
+            default=0.5,
+            help="Probability of sampling current agent as opponent.",
+        )
+        self.train_parser.add_argument(
+            "--league-change-freq",
             type=int,
-            default=200,
-            help="Number of episodes in self-play until change.",
+            default=200_000,
+            help="Number of frames after which a learning step is performed.",
         )
         self.train_parser.add_argument(
             "--num-warmup-frames",

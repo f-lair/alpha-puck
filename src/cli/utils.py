@@ -10,6 +10,7 @@ import torch
 from tqdm import trange
 
 from rl.agent import Agent
+from rl.league import League
 
 
 class Mode(IntEnum):
@@ -99,88 +100,46 @@ def get_env_from_mode(mode: int) -> h_env.HockeyEnv:
         return h_env.HockeyEnv(mode=h_env.HockeyEnv.NORMAL)
 
 
-def get_opponents_from_mode(
+def get_league_from_mode(
     agent: Agent,
     mode: int,
-    max_num_opponents: int,
-    num_episodes_weak: int,
-    num_episodes_strong: int,
-    num_episodes_self: int,
-) -> Deque[Tuple[str, Agent | h_env.BasicOpponent, int]]:
+    league_size: int,
+    weak_p: float,
+    strong_p: float,
+    self_p: float,
+) -> League:
     """
-    Returns opponent agent, specified by mode.
+    Returns league of opponents, specified by mode.
 
     Args:
         agent (Agent): Protagonist RL agent.
         mode (int): Environment mode: 0 (defense), 1 (attacking), 2 (play vs. weak bot), 3 (play vs. strong bot), 4 (self-play), 5 (play vs. weak and strong bot), 6 (play vs. weak and strong bot + self-play).
-        max_num_opponents (int): Maximum number of opponents.
-        num_episodes_weak (int): Number of episodes agains weak bot until change.
-        num_episodes_strong (int): Number of episodes agains strong bot until change.
-        num_episodes_self (int): Number of episodes in self-play until change.
+        league_size (int): Size of past-agents' league.
+        weak_p (float): Probability of sampling weak opponent.
+        strong_p (float): Probability of sampling strong opponent.
+        self_p (float): Probability of sampling current agent as opponent.
 
     Raises:
         ValueError: Modes above 6 are invalid.
 
     Returns:
-        Deque[Tuple[str, Agent | h_env.BasicOpponent, int]]: Opponent name, Opponent agent, number of episodes until change.
+        League: League of opponents.
     """
-
-    opponents = deque(maxlen=max_num_opponents)
 
     if mode <= Mode.PLAY_WEAK:
-        opponents.append(("Weak", h_env.BasicOpponent(weak=True), num_episodes_weak))
+        return League(agent, league_size, 1.0, 0.0, 0.0)
     elif mode == Mode.PLAY_STRONG:
-        opponents.append(("Strong", h_env.BasicOpponent(weak=False), num_episodes_strong))
+        return League(agent, league_size, 0.0, 1.0, 0.0)
     elif mode == Mode.PLAY_SELF:
-        opponents.append(("Self", deepcopy(agent), num_episodes_self))
+        return League(agent, league_size, 0.0, 0.0, 1.0)
     elif mode == Mode.PLAY_WEAK_STRONG:
-        opponents.append(("Weak", h_env.BasicOpponent(weak=True), num_episodes_weak))
-        opponents.append(("Strong", h_env.BasicOpponent(weak=False), num_episodes_strong))
+        return League(
+            agent, league_size, weak_p / (weak_p + strong_p), strong_p / (weak_p + strong_p), 0.0
+        )
     elif mode == Mode.PLAY_WEAK_STRONG_SELF:
-        opponents.append(("Weak", h_env.BasicOpponent(weak=True), num_episodes_weak))
-        opponents.append(("Strong", h_env.BasicOpponent(weak=False), num_episodes_strong))
-        opponents.append(("Self", deepcopy(agent), num_episodes_self))
+        return League(agent, league_size, weak_p, strong_p, self_p)
     else:
         raise ValueError(f"Invalid mode: {mode}.")
-
-    return opponents
-
-
-def update_opponents(
-    agent: Agent,
-    mode: int,
-    opponents: Deque[Tuple[str, Agent | h_env.BasicOpponent, int]],
-    num_episodes_self: int,
-) -> None:
-    """
-    Updates self-play opponents in-place.
-
-    Args:
-        agent (Agent): Current learning agent.
-        mode (int): Environment mode: 0 (defense), 1 (attacking), 2 (play vs. weak bot), 3 (play vs. strong bot), 4 (self-play), 5 (play vs. weak and strong bot), 6 (play vs. weak and strong bot + self-play).
-        opponents (Deque[Tuple[str, Agent  |  h_env.BasicOpponent, int]]): Opponent name, Opponent agent, number of episodes until change.
-        num_episodes_self (int): Number of episodes in self-play until change.
-    """
-
-    if mode == Mode.PLAY_SELF:
-        # can simply add new self-play agent to FIFO
-        opponents.append(("Self", deepcopy(agent), num_episodes_self))
-    elif mode == Mode.PLAY_WEAK_STRONG_SELF:
-        # save original FIFO length
-        num_opponents = len(opponents)
-        # first two items are bots, which should be preserved
-        weak = opponents.popleft()
-        strong = opponents.popleft()
-        # remove old self-play agent, if FIFO was full before update start
-        if num_opponents == opponents.maxlen:
-            _ = opponents.popleft()
-        # add weak and strong bots again
-        opponents.appendleft(strong)
-        opponents.appendleft(weak)
-        # add new self-play agent
-        opponents.append(("Self", deepcopy(agent), num_episodes_self))
-    else:
-        return
 
 
 def play_eval(
