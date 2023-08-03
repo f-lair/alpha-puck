@@ -35,7 +35,7 @@ class CLI:
         self.main_parser.add_argument(
             "--hidden-dim",
             type=int,
-            default=512,
+            default=256,
             help="Dimensionality of the hidden layers in the critic model.",
         )
         self.main_parser.add_argument(
@@ -266,7 +266,7 @@ class CLI:
             "--log-freq",
             type=int,
             default=10_000,
-            help="Number of frames after which certain statistics (e.g., epsilon) are logged.",
+            help="Number of frames after which certain statistics (e.g., loss, epsilon) are logged.",
         )
         self.train_parser.add_argument(
             "--eval-freq",
