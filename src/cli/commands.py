@@ -193,7 +193,8 @@ def train(
     frame_idx = 0
     log_terminal_idx = 0
     league_terminal_idx = 0
-    pbar_stats = {"loss": 0.0}
+    loss = 0.0
+    pbar_stats = {"loss": loss}
 
     with tqdm(total=num_frames, disable=disable_progress_bar, postfix=pbar_stats) as pbar:
         while frame_idx < num_frames:
@@ -237,9 +238,11 @@ def train(
                         loss = agent_p1.learn(
                             replay_buffer, loss_fn, optimizer, batch_size, grad_clip_norm
                         )
-                        logger.add_scalar("Loss", loss, frame_idx)
                         pbar_stats["loss"] = loss
                         pbar.set_postfix(pbar_stats)
+
+                    if frame_idx % log_freq == 0:
+                        logger.add_scalar("Loss", loss, frame_idx)
 
                     if frame_idx % eval_freq == 0:
                         for agent_p2_name, agent_p2 in eval_opponents.items():
