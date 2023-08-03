@@ -1,4 +1,3 @@
-from collections import deque
 from copy import deepcopy
 from typing import Tuple
 
@@ -35,13 +34,14 @@ class League:
         self.league1_p = np.array([weak_p, strong_p, self_p, past_self_p])
         self.league2_w = np.zeros((size,), dtype=int)
         self.league2_t = np.zeros((size,), dtype=int)
+        self.league2_p = np.ones((1,), dtype=np.float64)
 
         self_agent = agent
         weak_agent = h_env.BasicOpponent(weak=True)
         strong_agent = h_env.BasicOpponent(weak=False)
 
         self.league1_agents = [weak_agent, strong_agent, self_agent]
-        self.league2_agents = deque([deepcopy(self_agent)], maxlen=size)
+        self.league2_agents = [deepcopy(self_agent)]
 
     def sample(self) -> Tuple[Agent | h_env.BasicOpponent, int | None]:
         """
@@ -56,18 +56,7 @@ class League:
         if league1_idx < len(self.league1_agents):
             return self.league1_agents[league1_idx], None
         else:
-            league2_p = (
-                1.0
-                - np.divide(
-                    self.league2_w[: len(self.league2_agents)],
-                    2 * self.league2_t[: len(self.league2_agents)],
-                    out=np.zeros((len(self.league2_agents),), dtype=np.float64),
-                    where=self.league2_t[: len(self.league2_agents)] != 0,
-                )
-            ) ** 2
-            league2_p /= league2_p.sum()
-
-            league2_idx = np.random.choice(len(self.league2_agents), p=league2_p)
+            league2_idx = np.random.choice(len(self.league2_agents), p=self.league2_p)
             return self.league2_agents[league2_idx], league2_idx
 
     def update_statistics(self, num_points: int, num_games: int, league2_idx: int) -> None:
@@ -83,17 +72,30 @@ class League:
         self.league2_w[league2_idx] += num_points
         self.league2_t[league2_idx] += num_games
 
+        self.league2_p = (
+            1.0
+            - np.divide(
+                self.league2_w[: len(self.league2_agents)],
+                2 * self.league2_t[: len(self.league2_agents)],
+                out=np.zeros((len(self.league2_agents),), dtype=np.float64),
+                where=self.league2_t[: len(self.league2_agents)] != 0,
+            )
+        ) ** 2
+        self.league2_p /= self.league2_p.sum()
+
     def add_past_agent(self) -> None:
         """
         Adds new past-agent based on current agent.
         """
 
         self_agent = self.league1_agents[-1]
-        full = len(self.league2_agents) == self.league2_agents.maxlen
-        self.league2_agents.append(deepcopy(self_agent))
-        if full:
-            self.league2_w[0:-1] = self.league2_w[1:]
-            self.league2_w[-1] = 0
+        full = len(self.league2_agents) == len(self.league2_t)
 
-            self.league2_t[0:-1] = self.league2_t[1:]
-            self.league2_t[-1] = 0
+        if full:
+            least_idx = np.argmin(self.league2_p)
+            self.league2_agents[least_idx] = deepcopy(self_agent)
+            self.league2_p[least_idx] = 1.0
+            self.league2_w[least_idx] = 0
+            self.league2_t[least_idx] = 0
+        else:
+            self.league2_agents.append(deepcopy(self_agent))
