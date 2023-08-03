@@ -184,7 +184,6 @@ def train(
     if logging_name == "":
         logging_name = datetime.now().strftime("%m_%d_%y__%H_%M")
     log_path = Path(logging_dir).joinpath(logging_name)
-    model_filepath = log_path.joinpath("checkpoint.pt")
     logger = SummaryWriter(str(log_path))
     hparam_metrics_dict = {
         "hparam/weak-winning-percentage": 0.0,
@@ -267,6 +266,7 @@ def train(
                             hparam_metrics_dict[
                                 f"hparam/{agent_p2_name.lower()}-winning-percentage"
                             ] = winning_percentage
+                        model_filepath = log_path.joinpath(f"checkpoint-{frame_idx}.pt")
                         agent_p1.save_model(str(model_filepath))
 
                     if frame_idx % update_target_freq == 0:
