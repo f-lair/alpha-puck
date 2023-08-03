@@ -34,7 +34,8 @@ class League:
         self.league1_p = np.array([weak_p, strong_p, self_p, past_self_p])
         self.league2_w = np.zeros((size,), dtype=int)
         self.league2_t = np.zeros((size,), dtype=int)
-        self.league2_p = np.ones((1,), dtype=np.float64)
+        self.league2_p = np.zeros((size,), dtype=np.float64)
+        self.league2_p[0] = 1.0
 
         self_agent = agent
         weak_agent = h_env.BasicOpponent(weak=True)
@@ -56,7 +57,9 @@ class League:
         if league1_idx < len(self.league1_agents):
             return self.league1_agents[league1_idx], None
         else:
-            league2_idx = np.random.choice(len(self.league2_agents), p=self.league2_p)
+            league2_idx = np.random.choice(
+                len(self.league2_agents), p=self.league2_p[: len(self.league2_agents)]
+            )
             return self.league2_agents[league2_idx], league2_idx
 
     def update_statistics(self, num_points: int, num_games: int, league2_idx: int) -> None:
@@ -75,12 +78,13 @@ class League:
         self.league2_p = (
             1.0
             - np.divide(
-                self.league2_w[: len(self.league2_agents)],
-                2 * self.league2_t[: len(self.league2_agents)],
-                out=np.zeros((len(self.league2_agents),), dtype=np.float64),
-                where=self.league2_t[: len(self.league2_agents)] != 0,
+                self.league2_w,
+                2 * self.league2_t,
+                out=np.zeros_like(self.league2_p),
+                where=self.league2_t != 0,
             )
         ) ** 2
+        self.league2_p[len(self.league2_agents) :] = 0.0
         self.league2_p /= self.league2_p.sum()
 
     def add_past_agent(self) -> None:
@@ -92,10 +96,12 @@ class League:
         full = len(self.league2_agents) == len(self.league2_t)
 
         if full:
-            least_idx = np.argmin(self.league2_p)
-            self.league2_agents[least_idx] = deepcopy(self_agent)
-            self.league2_p[least_idx] = 1.0
-            self.league2_w[least_idx] = 0
-            self.league2_t[least_idx] = 0
+            idx = int(np.argmin(self.league2_p))
+            self.league2_agents[idx] = deepcopy(self_agent)
+            self.league2_w[idx] = 0
+            self.league2_t[idx] = 0
         else:
+            idx = len(self.league2_agents)
             self.league2_agents.append(deepcopy(self_agent))
+
+        self.update_statistics(0, 0, idx)
