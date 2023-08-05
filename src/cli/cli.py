@@ -54,7 +54,7 @@ class CLI:
             "--mode",
             type=int,
             default=0,
-            help="Environment mode: 0 (defense), 1 (attacking), 2 (play vs. weak bot), 3 (play vs. strong bot), 4 (play vs. AI), 5 (play vs. weak and strong bot).",
+            help="Environment mode: 0 (defense), 1 (attacking), 2 (play vs. weak bot), 3 (play vs. strong bot), 4 (self-play), 5 (play vs. weak and strong bot), 6 (play vs. weak and strong bot + self-play)",
         )
         self.main_parser.add_argument(
             "--max-abs-force",
@@ -155,12 +155,6 @@ class CLI:
             help="Minimum priority per transition in the replay buffer.",
         )
         self.train_parser.add_argument(
-            "--decay-window",
-            type=int,
-            default=5,
-            help="Size of the decay window in PSER. Set to 1 for regular PER behavior.",
-        )
-        self.train_parser.add_argument(
             "--alpha",
             type=float,
             default=0.6,
@@ -177,18 +171,6 @@ class CLI:
             type=float,
             default=0.99,
             help="Discount factor.",
-        )
-        self.train_parser.add_argument(
-            "--nu",
-            type=float,
-            default=0.7,
-            help="Previous priority in PSER.",
-        )
-        self.train_parser.add_argument(
-            "--rho",
-            type=float,
-            default=0.4,
-            help="Decay coefficient in PSER.",
         )
         self.train_parser.add_argument(
             "--epsilon-start",

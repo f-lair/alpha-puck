@@ -8,10 +8,6 @@ import torch
 class ReplayBuffer:
     """Implements multi-step Prioritized Experience Replay (PER) buffer."""
 
-    # cf. https://davidrpugh.github.io/stochastic-expatriate-descent/pytorch/deep-reinforcement-learning/deep-q-networks/2020/04/14/prioritized-experience-replay.html
-    # cf. https://github.com/Howuhh/prioritized_experience_replay/blob/main/memory/buffer.py
-    # cf. https://github.com/Curt-Park/rainbow-is-all-you-need/blob/master/07.n_step_learning.ipynb
-
     def __init__(
         self,
         size: int,
@@ -19,12 +15,9 @@ class ReplayBuffer:
         action_dim: int,
         num_steps: int,
         min_priority: float,
-        decay_window: int,
         alpha: float,
         beta: float,
         gamma: float,
-        nu: float,
-        rho: float,
         device: torch.device,
     ) -> None:
         """
@@ -36,26 +29,18 @@ class ReplayBuffer:
             action_dim (int): Dimensionality of the action space.
             num_steps (int): Number of steps in multi-step-return.
             min_priority (float): Minimum priority per transition in the replay buffer.
-            decay_window (int): Size of the decay window in PSER. Set to 1 for regular PER behavior.
             alpha (float): Priority exponent in the replay buffer.
             beta (float): Importance sampling exponent in the replay buffer.
             gamma (float): Discount factor.
-            nu (float): Previous priority in PSER.
-            rho (float): Decay coefficient in PSER.
             device (torch.device): Device used for computations.
         """
 
         self.size = size
         self.num_steps = num_steps
         self.min_priority = min_priority
-        self.decay_window = decay_window
         self.alpha = alpha
         self.beta = beta
         self.gamma = gamma
-        self.nu = nu
-        self.rho = torch.full((self.decay_window,), rho)
-        self.rho **= torch.arange(1, self.decay_window + 1)
-        self.rho **= self.alpha
         self.device = device
 
         # memory buffers
@@ -76,7 +61,7 @@ class ReplayBuffer:
         # multi-step buffer
         self.n_step_buffer = deque(maxlen=self.num_steps)
 
-    def _get_step_info(self) -> Tuple[float, torch.Tensor, bool]:
+    def _get_multi_step(self) -> Tuple[float, torch.Tensor, bool]:
         """
         Returns transition information in multi-step return.
         S: State dimension.
@@ -127,7 +112,7 @@ class ReplayBuffer:
         if len(self.n_step_buffer) < self.num_steps:
             return
 
-        reward, next_state_t, terminal = self._get_step_info()
+        reward, next_state_t, terminal = self._get_multi_step()
         state_t, _, action_t, _, _ = self.n_step_buffer[0]
 
         idx = self.counter
@@ -219,61 +204,16 @@ class ReplayBuffer:
             priorities (torch.Tensor): New priorities [B].
         """
 
-        old_priorities, _ = self.priority_tree.get_leaves(data_indices)
-        old_priorities_ = old_priorities * self.nu**self.alpha
         priorities = (priorities + self.min_priority) ** self.alpha
 
         assert self.priority_tree.nodes.min() >= 0
 
-        self.priority_tree.update(data_indices, torch.maximum(old_priorities_, priorities))
+        self.priority_tree.update(data_indices, priorities)
         self.max_priority = max(self.max_priority, priorities.max().item())
-
-        # VECTORIZED PSER IMPLEMENTATION; NOT TESTED
-        # priorities_ = priorities.repeat(1, self.decay_window)
-        # priorities_ *= self.rho[None, :]
-        # priorities_ = priorities_.flatten()
-
-        # data_indices_ = data_indices.repeat(1, self.decay_window)
-        # data_indices_ -= torch.arange(1, self.decay_window + 1)[None, :]
-        # data_indices_ = data_indices_.flatten()
-
-        # old_priorities, _ = self.priority_tree.get_leaves(data_indices_)
-        # data_indices_ = data_indices_.repeat(2)
-        # priorities_ = torch.concatenate((priorities_, old_priorities))
-
-        # # np.maximum.reduceat(values[idx], np.r_[0, np.flatnonzero(np.diff(ids[idx])) + 1])
-        # # cf. https://stackoverflow.com/a/70964414
-        # idx_sorted = torch.argsort(data_indices_)
-        # max_indices = torch.concatenate(
-        #     (
-        #         torch.zeros((1,), dtype=torch.int64),
-        #         torch.nonzero(torch.ravel(torch.diff(data_indices_[idx_sorted])))[:, 0] + 1,
-        #         torch.tensor([len(priorities_)], dtype=torch.int64),
-        #     )
-        # )
-        # priorities_ = segment_csr(priorities_[idx_sorted], max_indices, reduce="max")
-        # data_indices_ = torch.unique_consecutive(data_indices_[idx_sorted])
-
-        # self.priority_tree.update(data_indices_, priorities_)
-
-        terminal = torch.zeros((len(data_indices),), dtype=torch.bool)
-        terminals_cpu = self.terminals.to(device="cpu", dtype=torch.bool)
-        for k in range(1, self.decay_window + 1):
-            prior_data_indices = data_indices - k
-            terminal = torch.logical_and(terminal, terminals_cpu[prior_data_indices])
-            prior_data_indices = prior_data_indices[~terminal]
-
-            prior_priorities = priorities[~terminal] * self.rho[k - 1]
-            old_prior_priorities, _ = self.priority_tree.get_leaves(prior_data_indices)
-            updated_prior_priorities = torch.maximum(prior_priorities, old_prior_priorities)
-
-            self.priority_tree.update(prior_data_indices, updated_prior_priorities)
 
 
 class SumTree:
     """Implements SumTree for efficient computation of (cumulative) sums in a vectorized manner."""
-
-    # cf. https://github.com/Howuhh/prioritized_experience_replay/blob/main/memory/tree.py
 
     def __init__(self, size: int, data_size: int, data_type: torch.dtype) -> None:
         """
@@ -322,11 +262,6 @@ class SumTree:
         tree_indices = indices_unique + self.size - 1
         changes = values_unique - self.nodes[tree_indices]
 
-        # print("O", self.nodes[tree_indices])
-        # print("D", data_indices)
-        # print("V", values)
-        # print("C", changes)
-
         self.nodes[tree_indices] = values_unique
 
         parent_indices = compute_parent_indices(tree_indices)
@@ -337,12 +272,6 @@ class SumTree:
             )
             nodes_add = torch.zeros_like(self.nodes[parent_indices_unique])
             nodes_add.put_(unique_inv, changes[mask], accumulate=True)
-            # if not torch.all(self.nodes[parent_indices_unique] + nodes_add >= 0):
-            #     print("OP", self.nodes[parent_indices_unique])
-            #     print("A", nodes_add)
-            #     print("S", self.nodes[parent_indices_unique] + nodes_add)
-            #     print("U", unique_inv)
-            #     print("PI", parent_indices[mask])
             self.nodes[parent_indices_unique] += nodes_add
 
             parent_indices = compute_parent_indices(parent_indices)

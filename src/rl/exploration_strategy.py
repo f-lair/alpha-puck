@@ -77,6 +77,3 @@ class EpsilonGreedyExpDecay(EpsilonGreedy):
         """
 
         self.epsilon = max(self.epsilon * self.decay_factor, self.epsilon_min)
-
-
-# TODO: Increase Epsilon on Plateau

@@ -34,12 +34,9 @@ def train(
     replay_buffer_size: int,
     num_steps: int,
     min_priority: float,
-    decay_window: int,
     alpha: float,
     beta: float,
     gamma: float,
-    nu: float,
-    rho: float,
     epsilon_start: float,
     epsilon_min: float,
     decay_factor: float,
@@ -81,12 +78,9 @@ def train(
         replay_buffer_size (int): Size of the replay buffer.
         num_steps (int): Number of steps in multi-step-return.
         min_priority (float): Minimum priority per transition in the replay buffer.
-        decay_window (int): Size of the decay window in PSER. Set to 1 for regular PER behavior.
         alpha (float): Priority exponent in the replay buffer.
         beta (float): Importance sampling exponent in the replay buffer.
         gamma (float): Discount factor.
-        nu (float): Previous priority in PSER.
-        rho (float): Decay coefficient in PSER.
         epsilon_start (float): Initial value for epsilon in the epsilon-greedy exploration strategy.
         epsilon_min (float): Minimum value for epsilon in the epsilon-greedy exploration strategy.
         decay_factor (float): Decay factor for epsilon in the epsilon-greedy exploration strategy.
@@ -149,12 +143,9 @@ def train(
         action_dim,
         num_steps,
         min_priority,
-        decay_window,
         alpha,
         beta,
         gamma,
-        nu,
-        rho,
         device,
     )
     exploration_strategy = EpsilonGreedyExpDecay(
