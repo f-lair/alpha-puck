@@ -114,12 +114,12 @@ class NetworkInterface(pb.Referenceable):
         self.client.game_aborted(msg)
 
     def remote_game_done(
-        self, ob: List[float], r: int, done: int, trunc: int, info: Dict, result: Dict
+        self, ob: List[float], r: float, done: int, trunc: int, info: Dict, result: Dict
     ) -> None:
         self.client.game_done(ob, r, done, trunc, info, result)
 
     def remote_receive_observation(
-        self, ob: List[float], r: int, done: int, trunc: int, info: Dict
+        self, ob: List[float], r: float, done: int, trunc: int, info: Dict
     ) -> None:
         self.client.step(ob, r, done, trunc, info)
 

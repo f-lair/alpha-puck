@@ -1,4 +1,4 @@
-# Client for the RL2023 Hockey Tournament
+# Client for the ALRL2020 Hockey Tournament
 
 ## RemoteController Interface
 
