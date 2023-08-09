@@ -270,6 +270,12 @@ class CLI:
             required=True,
             help="Remote user password.",
         )
+        self.play_parser.add_argument(
+            "--verbose",
+            default=False,
+            action="store_true",
+            help="Activates verbose console output.",
+        )
 
     def __call__(self) -> None:
         args = self.main_parser.parse_args()

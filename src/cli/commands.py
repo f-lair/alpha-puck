@@ -380,6 +380,7 @@ def play(
     num_eval_episodes: int,
     user_name: str,
     user_password: str,
+    verbose: bool,
     **kwargs,
 ) -> None:
     """
@@ -400,6 +401,7 @@ def play(
         num_eval_episodes (int): Number of evaluation episodes. Unlimited, if negative.
         user_name (str): Remote user name.
         user_password (str): Remote user password.
+        verbose (bool): Activates verbose console output.
     """
 
     setup_rng(rng_seed)
@@ -441,4 +443,5 @@ def play(
         interactive=False,
         op='start_queuing',
         num_games=num_eval_episodes if num_eval_episodes >= 0 else None,
+        verbose=verbose,
     )

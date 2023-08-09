@@ -81,6 +81,7 @@ class Client:
         num_games: Optional[int] = None,
         server_addr: str = 'al-hockey.is.tuebingen.mpg.de',
         server_port: str = '33000',
+        verbose: bool = True,
     ):
         self.state = ClientOperationState.IDLE
 
@@ -104,10 +105,10 @@ class Client:
                 self.client_cmd = ClientCMD(self)
                 self.quering_cmd = InteractiveMode(self)
             except:
-                print('Couldn\'t load cmd module. Running in non-interactive mode')
+                print('Couldn\'t load cmd module. Running in non-interactive mode', flush=True)
                 self.interactive = False
 
-        self.verbose = True
+        self.verbose = verbose
 
         self.current_game = None
 
@@ -124,7 +125,7 @@ class Client:
 
         if self.state == ClientOperationState.PLAYING:
             if self.verbose:
-                print('Playing last game')
+                print('Playing last game', flush=True)
             self.state = ClientOperationState.PLAYING_QUIT
         elif self.state == ClientOperationState.WAITING_FOR_GAME:
             self.waiting_for_game_loop.stop()
@@ -192,21 +193,25 @@ escape.
     ) -> None:
         if conn_err == NetworkInterfaceConnectionError.CONNECTING:
             print(
-                'Could not connect to server. Please try again later or contact the administrator'
+                'Could not connect to server. Please try again later or contact the administrator',
+                flush=True,
             )
         elif conn_err == NetworkInterfaceConnectionError.LOST:
-            print('Connection to Server lost. Please try again later or contact the administrator')
+            print(
+                'Connection to Server lost. Please try again later or contact the administrator',
+                flush=True,
+            )
 
     def post_connection_established(self) -> None:
-        print('Successfully connected to server')
-        print(self._greeting())
+        print('Successfully connected to server', flush=True)
+        print(self._greeting(), flush=True)
         self._command_line_interface()
 
     # Callback functions
     def waiting_for_game_to_start(self, *args, **kwargs) -> None:
         def f():
             if self.verbose:
-                print('Waiting for other player')
+                print('Waiting for other player', flush=True)
 
         if not self.state == ClientOperationState.PLAYING:
             self.state = ClientOperationState.WAITING_FOR_GAME
@@ -216,8 +221,8 @@ escape.
     # Game loop functions
     def game_starts(self, ob: List[float], info: Dict) -> None:
         if self.verbose:
-            print(f'New Game started ({info["id"]})')
-            print(f'{info["player"][0]} vs {info["player"][1]}')
+            print(f'New Game started ({info["id"]})', flush=True)
+            print(f'{info["player"][0]} vs {info["player"][1]}', flush=True)
 
         self.state = ClientOperationState.PLAYING
 
@@ -258,7 +263,7 @@ escape.
     ) -> None:
         action = self.controller.remote_act(np.asarray(ob)).tolist()
         if self.verbose and done:
-            print(f"Winner: {info['winner']}")
+            print(f"Winner: {info['winner']}", flush=True)
         try:
             self.current_game.add_transition(
                 next_obs=ob, next_action=action, r=r, done=done, trunc=trunc, info=info
@@ -274,7 +279,7 @@ escape.
 
     def game_aborted(self, msg: str) -> None:
         if self.verbose:
-            print(msg)
+            print(msg, flush=True)
 
         self.current_game = None
 
@@ -288,9 +293,10 @@ escape.
         self, ob: List[float], r: float, done: int, trunc: int, info: Dict, result: Dict
     ) -> None:
         if self.verbose:
-            print(f"Winner: {info['winner']}")
+            print(f"Winner: {info['winner']}", flush=True)
             print(
-                f'{result["games_played"]} games played. You won {result["games_won"]} games. You lost {result["games_lost"]} games. {result["games_drawn"]} game(s) end in a draw.'
+                f'{result["games_played"]} games played. You won {result["games_won"]} games. You lost {result["games_lost"]} games. {result["games_drawn"]} game(s) end in a draw.',
+                flush=True,
             )
         self.current_game.add_transition(
             next_obs=ob, next_action=None, r=r, done=done, trunc=trunc, info=info
