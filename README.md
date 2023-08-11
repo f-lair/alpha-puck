@@ -2,7 +2,7 @@
 
 ![Python](https://img.shields.io/badge/python-3.10-blue.svg)
 [![CI](https://github.com/f-lair/alpha-puck/actions/workflows/ci.yml/badge.svg)](https://github.com/f-lair/alpha-puck/actions/workflows/ci.yml)
-![License](https://img.shields.io/github/license/f-lair/mlses-seminar-23)
+![License](https://img.shields.io/github/license/f-lair/alpha-puck)
 
 This work was done as part of the Reinforcement Learning (RL) lecture at the University of Tübingen in the summer semester of 2023.
 The goal was to develop an RL agent for a 2D two-player hockey game that can beat two PID-controlled basic opponent players.
