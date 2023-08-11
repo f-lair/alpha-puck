@@ -5,7 +5,7 @@
 ![License](https://img.shields.io/github/license/f-lair/alpha-puck)
 
 This work was done as part of the Reinforcement Learning (RL) lecture at the University of Tübingen in the summer semester of 2023.
-The goal was to develop an RL agent for a 2D two-player hockey game that can beat two PID-controlled basic opponent players.
+The goal was to develop an RL agent for a 2D two-player hockey game that can beat two PD-controlled basic opponent players.
 There was also a final tournament against all RL agents developed by the other participants in the lecture.
 
 We implemented the Decoupled Q-Networks (DecQN) [[1]](#1) algorithm, an adaption of classical DQN for continuous control problems.
