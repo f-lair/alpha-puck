@@ -72,6 +72,7 @@ class ReplayBuffer:
 
         _, next_state, _, reward, terminal = self.n_step_buffer[-1]
 
+        # traverse collected transitions in reverse order, account for terminal signal by resetting
         for transition in reversed(list(self.n_step_buffer)[:-1]):
             _, next_state_tm1, _, reward_tm1, terminal_tm1 = transition
 

@@ -24,6 +24,7 @@ pip install -r requirements.txt
 
 The same python script `src/main.py` is used for both training and evaluating an RL agent.
 It implements a command line interface that allows choosing between these two tasks through subcommands `train` and `test`.
+**Important:** It must be run inside the directory `src/`.
 For the details, invoke the script with the flag `-h`/`--help`.
 
 
